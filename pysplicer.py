@@ -14,11 +14,20 @@ import json
 import itertools
 from math import ceil, floor
 
+# Below: Some files and directories are required for the script to correctly import codon tables etc.,
+# so first the expected directories are set to variables, and then it's checked whether or not they exist.
 script_dir = sys.path[0] # Gives script directory. Default/imported codon tables will be here.
 lib_dir = os.path.join(script_dir, 'lib')
 codon_table_dir = os.path.join(lib_dir, 'codontables')
 working_dir = os.getcwd() # Gives current working directory.
+for needed_dir in [script_dir, lib_dir, codon_table_dir]:
+    try:
+        assert os.path.exists(needed_dir)
+    except AssertionError:
+        print("Could not find necessary directory: "+needed_dir+". Aborting.")
+        sys.exit(1)
 
+# Below: Initialise ArgumentParser object, which provides the nice CLI interface.
 arg_parser = argparse.ArgumentParser(description=('Performs reverse-translation and weighted-random '
                                          'codon optimisation on an amino acid sequence. '
                                          'Default setting is an E.coli table derived from '
@@ -44,14 +53,10 @@ arg_parser.add_argument('-n', '--splice-candidates', type=int, default=0,
                              'when attempting to exclude many sites, or highly redundant sites.'))
 arg_parser.add_argument('--usage', action='store_true',
                        help='Ignore other flags/input and provide detailed usage information.')
-# Future features:
-#arg_parser.add_argument('--convert-table', type=FileType('r'),
-#                       help='Target table in XYZ format for import to native JSON format')
 
 args = vars(arg_parser.parse_args()) # vars makes a dict of the results.
 # ============================================================================================== #
-#def verbose_msg(Msg): # Optional print statement.
-#    if args['verbose']: print(Msg)
+# Below: The class that does most of the heavy lifting here:
 
 class rev_translate_rna:
 
@@ -583,7 +588,7 @@ class rev_translate_rna:
         return self.result
 
 # ======================================================================== #
-# Functions:
+# Below: Some functions that might be better off as methods for the sake of portability:
 from fasta_utils import read_fasta_file
 
 def import_codon_table(codon_table_file):
@@ -633,6 +638,8 @@ def import_exclusions(exclude_file):
     return excludesList
 
 # ======================================================================== #
+# Below: Parse all those args from above.
+
 # args contains: 'infile', 'output_dna', 'species', 'exclude_sites', 'min_codon_frequency', 'usage', 'splice_candidates'
 # Usage: RevTranslatedRNA(aminos, codontable, excludesites, output_dna=False):
 fasta_dict = read_fasta_file(args['infile'])
@@ -682,6 +689,7 @@ if args['verbose']:
 else:
     verbose_arg = False
 
+# Below: Make the magic happen. Instantiate reverse_translator and perform usual operations to get desired output.
 reverse_translator = rev_translate_rna(amino_sequence, species_codon_table, site_exclusion_list, freq_arg, dna_arg, splices_arg, verbose_arg)
 reverse_translator.splice_sequences()
 reverse_translator.optimise_sequence()
@@ -690,4 +698,3 @@ reverse_translator.optimise_sequence()
 reverse_translator.verbose_msg("codons with remaining issues: "+json.dumps(reverse_translator.ignoredcodons))
 reverse_translator.verbose_msg("\r\nOutput:\r\n")
 print(reverse_translator.give_output())
-
