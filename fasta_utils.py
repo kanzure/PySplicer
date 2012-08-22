@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 '''Some functions for working with FASTA sequences as native types.'''
 
-def ReadFastaFile(File):
-    'Imports the contents of a file as a string, passes to ReadFasta() and returns output.'
-    with open(File) as FastaFile:
-        FastaDict = ReadFasta(FastaFile.read())
-    return FastaDict
+def read_fasta_file(file):
+    'Imports the contents of a file as a string, passes to read_fasta() and returns output.'
+    with open(file) as fasta_file:
+        fasta_dict = read_fasta(fasta_file.read())
+    return fasta_dict
 
-def ReadFasta(FastaString):
+def read_fasta(fasta_string):
     '''Finds a sequence and returns a dictionary containing title, comments, accession (if found) and sequence.
 
     Supports extraction of titles, comments and sequence. (Comments are lines beginning with ';'.
@@ -18,27 +18,27 @@ def ReadFasta(FastaString):
      'sequence': (a string containing the sequence)
      'accession': (a string containing the accession information if present (detected by searching for '|' in title)
     '''
-    Sequence = {'title':'','comments':{},'sequence':'','accession':''}
-    FastaLines = []
-    for Line in FastaString.split("\n"):
-        Line = Line.strip()
-        if Line.startswith(">"): # Is sequence descriptor
-            Sequence['title'] = Line[1:].strip()
-        elif Line.startswith(";"): # Is a comment, rarely used
-            Sequence['comments'][len(Sequence['sequence'])] = Line[1:].strip()
+    sequence = {'title':'','comments':{},'sequence':'','accession':''}
+    fasta_lines = []
+    for line in fasta_string.split("\n"):
+        line = line.strip()
+        if line.startswith(">"): # Is sequence descriptor
+            sequence['title'] = line[1:].strip()
+        elif line.startswith(";"): # Is a comment, rarely used
+            sequence['comments'][len(sequence['sequence'])] = line[1:].strip()
             # Uses sequence length SO FAR minus 1, so acts like a string index for comment markup location.
-            # Sequence['comments'].append(Comment)
+            # sequence['comments'].append(Comment)
         else:
-            Sequence['sequence'] += Line.upper().strip()
-    FirstTitleWord = Sequence['title'].split(' ')[0].strip()
-    if '|' in FirstTitleWord: # Yes, this is crude, I know. #lazy
-        Sequence['accession'] = FirstTitleWord
-        Sequence['title'] = Sequence['title'][len(Sequence['accession']):].strip()
-    return Sequence
+            sequence['sequence'] += line.upper().strip()
+    first_title_word = sequence['title'].split(' ')[0].strip()
+    if '|' in first_title_word: # Yes, this is crude, I know. #lazy
+        sequence['accession'] = first_title_word
+        sequence['title'] = sequence['title'][len(sequence['accession']):].strip()
+    return sequence
 
-def MakeFasta(PassedSequenceDict, wraplines = 50):
+def make_fasta(passed_sequence_dict, wraplines = 50):
     '''Returns a multiline string containing the FASTA equivalent of the passed dictionary.
-    
+
     Dictionary must contain at least 'title' and 'sequence' keys. It may also contain 'accession'
     and 'comments' keys.
 
@@ -54,31 +54,31 @@ def MakeFasta(PassedSequenceDict, wraplines = 50):
 
     wraplines is the number of characters to print per line before wrapping to next line.
     spacelines is optional: place a space every (spacelines) characters'''
-    SequenceDict = PassedSequenceDict #Separate from original dict to avoid pollution?
-    assert isinstance(SequenceDict, dict)
+    sequence_dict = Passedsequence_dict #Separate from original dict to avoid pollution?
+    assert isinstance(sequence_dict, dict)
     for key in ['title', 'sequence']:
-        assert key in SequenceDict.keys()
-    if 'accession' not in SequenceDict.keys():
-        SequenceDict['accession'] = ''
-    if 'comments' not in SequenceDict.keys():
-        SequenceDict['comments'] = {}
-    checkpoints = [0, len(SequenceDict['sequence'])]
-    for point in SequenceDict['comments'].keys():
+        assert key in sequence_dict.keys()
+    if 'accession' not in sequence_dict.keys():
+        sequence_dict['accession'] = ''
+    if 'comments' not in sequence_dict.keys():
+        sequence_dict['comments'] = {}
+    checkpoints = [0, len(sequence_dict['sequence'])]
+    for point in sequence_dict['comments'].keys():
         assert isinstance(point, int)
         if point not in checkpoints:
             checkpoints.append(point)
     checkpoints.sort()
-    Output = '>{0} {1}\r\n'.format(SequenceDict['accession'].strip(), SequenceDict['title'].strip())
+    output = '>{0} {1}\r\n'.format(sequence_dict['accession'].strip(), sequence_dict['title'].strip())
     for point in checkpoints:
         if point != checkpoints[len(checkpoints)-1]: #i.e. if not last point
             nextpoint = checkpoints[checkpoints.index(point)+1]
         else: nextpoint = checkpoints[len(checkpoints)-1]
-        SequenceFragment = SequenceDict['sequence'][point:nextpoint]
-        FormattedSequence = ''
-        for i in range(0, len(SequenceFragment))[::wraplines]:
-            FormattedSequence += SequenceFragment[i:i+wraplines] + '\r\n'
-        if point in SequenceDict['comments'].keys():
-            Output += ';{0}\r\n{1}'.format(SequenceDict['comments'][point], FormattedSequence)
+        sequence_fragment = sequence_dict['sequence'][point:nextpoint]
+        formatted_sequence = ''
+        for i in range(0, len(sequence_fragment))[::wraplines]:
+            formatted_sequence += sequence_fragment[i:i+wraplines] + '\r\n'
+        if point in sequence_dict['comments'].keys():
+            output += ';{0}\r\n{1}'.format(sequence_dict['comments'][point], formatted_sequence)
         else:
-            Output += '{0}'.format(FormattedSequence)
-    return Output.strip()
+            output += '{0}'.format(formatted_sequence)
+    return output.strip()
