@@ -11,81 +11,92 @@ import sys
 import os
 import argparse
 import json
+import itertools
 from math import ceil, floor
 
-ScriptDir = sys.path[0] # Gives script directory. Default/imported codon tables will be here.
-LibDir = os.path.join(ScriptDir, 'lib')
-CodonTableDir = os.path.join(LibDir, 'codontables')
-WorkingDir = os.getcwd() # Gives current working directory.
+script_dir = sys.path[0] # Gives script directory. Default/imported codon tables will be here.
+lib_dir = os.path.join(script_dir, 'lib')
+codon_table_dir = os.path.join(lib_dir, 'codontables')
+working_dir = os.getcwd() # Gives current working directory.
 
-ArgParser = argparse.ArgumentParser(description=('Performs reverse-translation and weighted-random '
+arg_parser = argparse.ArgumentParser(description=('Performs reverse-translation and weighted-random '
                                          'codon optimisation on an amino acid sequence. '
                                          'Default setting is an E.coli table derived from '
                                          'empirical synthetic DNA research by Welch et al, '
                                          '2009.'))
-ArgParser.add_argument('infile', type=str,
+arg_parser.add_argument('infile', type=str,
                        help='Protein sequence, in FASTA file format, to be reverse translated and codon optimised.')
-ArgParser.add_argument('-d', '--output-dna', action='store_true',
+arg_parser.add_argument('-d', '--output-dna', action='store_true',
                        help='Output codon-optimised sequence as DNA, not RNA.')
-ArgParser.add_argument('-v', '--verbose', action='store_true',
+arg_parser.add_argument('-v', '--verbose', action='store_true',
                        help='Print far more information during processing.')
-ArgParser.add_argument('-s', '--species', type=str, default='default_ecoli',
+arg_parser.add_argument('-s', '--species', type=str, default='default_ecoli',
                        help='Species to optimise DNA for. Default is E.coli.')
-ArgParser.add_argument('-x', '--exclude-sites',
+arg_parser.add_argument('-x', '--exclude-sites',
                        help=('A json-formatted list of DNA or RNA substrings to forbid, '
                              'usually restriction enzyme target sites.'))
-ArgParser.add_argument('-m', '--min-codon-frequency', type=float, default=0.0,
+arg_parser.add_argument('-m', '--min-codon-frequency', type=float, default=0.0,
                        help=('A minimum codon frequency to accept; frequencies below this are discarded and'
                             ' remaining codon frequencies re-normalised.'))
-ArgParser.add_argument('-n', '--splice-candidates', type=int, default=0,
+arg_parser.add_argument('-n', '--splice-candidates', type=int, default=0,
                        help=('Number of random candidate codon sets to generate before attempting to splice '
                              'together a suitably enzyme-free set. Larger numbers of candidates may be useful '
                              'when attempting to exclude many sites, or highly redundant sites.'))
-ArgParser.add_argument('--usage', action='store_true',
+arg_parser.add_argument('--usage', action='store_true',
                        help='Ignore other flags/input and provide detailed usage information.')
 # Future features:
-#ArgParser.add_argument('--convert-table', type=FileType('r'),
+#arg_parser.add_argument('--convert-table', type=FileType('r'),
 #                       help='Target table in XYZ format for import to native JSON format')
 
-Args = vars(ArgParser.parse_args()) # vars makes a dict of the results.
+args = vars(arg_parser.parse_args()) # vars makes a dict of the results.
 # ============================================================================================== #
-def verboseMsg(Msg): # Optional print statement.
-    if Args['verbose']: print(Msg)
+def verbose_msg(Msg): # Optional print statement.
+    if args['verbose']: print(Msg)
 
-class RevTranslateRNA:
-    def __init__(self, aminos, codontable, excludesites, MinCodonFrequency=0.0, outputdna=False, candidates=0):
+class rev_translate_rna:
+
+    def __init__(self, aminos, codontable, excludesites, min_codon_frequency=0.0, outputdna=False, candidates=0):
         '''aminos: A string containing just the peptide sequence of a desired protein.
-           codontable: Should be a dict mapping Amino acid letters to codons with frequencies. Example entry:
-              "C": { "TGC": { "frequency": 0.5772005772005773 }, 
+           codontable: Should be a dict mapping amino acid letters to codons with frequencies. Example entry:
+              "C": { "TGC": { "frequency": 0.5772005772005773 },
                      "TGT": { "frequency": 0.42279942279942284}  }
            exclude_sites: Should be a list of sites to exclude; list is iterated over and compared to output.
            output_dna: Boolean: output is converted to DNA before export.
            candidates: Number of permutations of raw codon list to create by weighted-random selection before splicing.
         '''
-        def ErrThenExit(String):
+
+        def err_then_exit(String):
             print(String)
             sys.exit(1)
 
-        try: self.peptidesequence = self.loadaminos(aminos)
-        except AssertionError: ErrThenExit("Error: Provided 'aminos' not a string!")
+        try:
+            self.peptidesequence = self.load_aminos(aminos)
+        except AssertionError:
+            err_then_exit("Error: Provided 'aminos' not a string!")
 
-        try: self.excludesites, self.largestexclude = self.parseExcludes(excludesites)
-        except AssertionError: ErrThenExit("Error: Provided 'excludesites' not a list of strings!")
+        try:
+            self.excludesites, self.largestexclude = self.parse_excludes(excludesites)
+        except AssertionError:
+            err_then_exit("Error: Provided 'excludesites' not a list of strings!")
 
-        try: self.codontable = self.importCodonTable(codontable, MinCodonFrequency)
-        except AssertionError: ErrThenExit("Error: Provided 'codontable' not a dictionary!")
-        self.translationtable = self.buildTranslationTable(codontable)
+        try:
+            self.codontable = self.import_codon_table(codontable, min_codon_frequency)
+        except AssertionError:
+            err_then_exit("Error: Provided 'codontable' not a dictionary!")
+
+        self.translationtable = self.build_translation_table(codontable)
 
         self.buildwindowsize = ceil(self.largestexclude/3) # i.e. round up.
         self.outputdna = outputdna
         self.rnacodonlist = []
-        self.ignoredCodons = [] # Used to ignore intransigent sites.
+        self.ignoredcodons = [] # Used to ignore intransigent sites.
         self.result = ''
         candidatesnum = candidates or 20
-        self.generateCandidateList(candidatesnum)
-        verboseMsg("Initialised RevTranslateRNA object.")
+        self.generate_candidate_list(candidatesnum)
+        verbose_msg("Initialised rev_translate_rna object.")
 
-    def translate(self,codonlist):
+
+    def translate(self, codonlist):
         'Translate a list of codons into a string of amino acids. No regard for start/stop: translates all.'
         outstring = ''
         for codon in codonlist:
@@ -93,43 +104,49 @@ class RevTranslateRNA:
             outstring += encodes
         return outstring
 
-    def reverseTranslate(self, AminoString):
-        'Returns a list of codons encoding the AminoString, chosen by weighted-random from self.codontable.'
-        CodonList = []
-        for Amino in AminoString:
-            Codon = self.selectCodon(Amino)
-            CodonList.append(Codon)
-        return CodonList
 
-    def generateCodonList(self):
-        return self.reverseTranslate(self.peptidesequence)
+    def reverse_translate(self, amino_string):
+        'Returns a list of codons encoding the amino_string, chosen by weighted-random from self.codontable.'
+        codon_list = []
+        for amino in amino_string:
+            codon = self.select_codon(amino)
+            codon_list.append(codon)
+        return codon_list
 
-    def generateCodonSequence(self):
+
+    def generate_codon_list(self):
+        return self.reverse_translate(self.peptidesequence)
+
+
+    def generate_codon_sequence(self):
         'Shortcut method that just sets self.rnacodonlist to a raw reverse-translated form of self.peptidesequence.'
-        self.rnacodonlist = self.generateCodonList()
+        self.rnacodonlist = self.generate_codon_list()
 
-    def generateCandidateList(self, nums=20):
+
+    def generate_candidate_list(self, nums=20):
         assert nums > 0 # Better an assertionerror than an infinite loop on negative nums..
         self.candidatecodonlists = []
         while nums > 0:
             nums -= 1 # Count down.
-            self.candidatecodonlists.append(self.generateCodonList())
+            self.candidatecodonlists.append(self.generate_codon_list())
 
-    def prettyCodonsList(self, Codons):
+
+    def pretty_codons_list(self, codons):
         'An improvement to the codon output format; tabulates codons in rows of ten for ease of manual error checking.'
-        NumCodons = len(Codons)
-        FormatString = '{}\t{} {} {} {} {} {} {} {} {} {}\r\n'
-        PrintString = ''
-        for x in range(0, NumCodons, 10): # x counts from 0 in increments of 10
-            sublist = Codons[x:x+10]
+        num_codons = len(codons)
+        format_string = '{}\t{} {} {} {} {} {} {} {} {} {}\r\n'
+        print_string = ''
+        for x in range(0, num_codons, 10): # x counts from 0 in increments of 10
+            sublist = codons[x:x+10]
             while len(sublist) < 10: # Prevent format errors on last line.
                 sublist.append('')
-            PrintString += FormatString.format(x,*sublist)
-        return PrintString
+            print_string += format_string.format(x,*sublist)
+        return print_string
 
-    def spliceSequences(self, SequenceList=[]):
+
+    def splice_sequences(self, sequence_list=[]):
         '''Takes a list of candidate sequences (which must encode same amino sequence) and attempts to splice a site-free form.
-        
+
         This method uses self.issueMap to do the job of mapping each candidate sequence for issues, and compares sequences
         to find which one has the longest stretch of codons without any issues to address. It appends all the codons prior to
         the first discovered issue to an internal candidate sequence, and then starts again from this point, attempting to find
@@ -138,154 +155,179 @@ class RevTranslateRNA:
         In doing so, two problems may arise:
             A) The method may encounter an issue/site that is universal to all sequences, and it must ignore said site and continue.
             B) The method may create new issues/sites at the splice junctions, but resolving these issues can be left to the
-               self.optimiseSequence() method.
+               self.optimise_sequence() method.
         '''
-        SeqLen = 0 # Changed by assertEquivalence to length of sequences.
-        def assertEquivalence(SeqList):
-            'This function checks that SeqList is a non-zero list and that contents are valid and equivalent codon lists.'
-            assert isinstance(SeqList, list)
-            assert len(SeqList) > 0
-            for i in SeqList:
+
+        seq_len = 0 # Changed by assert_equivalence to length of sequences.
+
+        def assert_equivalence(seq_list):
+            'This function checks that seq_list is a non-zero list and that contents are valid and equivalent codon lists.'
+            assert isinstance(seq_list, list)
+            assert len(seq_list) > 0
+            for i in seq_list:
                 assert isinstance(i, list)
-            First = self.translate(SeqList[0])
-            nonlocal SeqLen
-            SeqLen = len(SeqList[0]) # Used later for a while loop.
-            for i in SeqList:
+            First = self.translate(seq_list[0])
+            nonlocal seq_len
+            seq_len = len(seq_list[0]) # Used later for a while loop.
+            for i in seq_list:
                 assert self.translate(i) == First
             return True
 
-        if not SequenceList:
-            SequenceList = self.candidatecodonlists
-        try: assertEquivalence(SequenceList)
+        if not sequence_list:
+            sequence_list = self.candidatecodonlists
+
+        try:
+            assert_equivalence(sequence_list)
         except AssertionError:
-            verboseMsg("Splicer: ERROR: SequenceList must be a list of codon lists, which all encode the same amino sequence.")
-            verboseMsg("Splicer: ERROR: Can't work under these conditions, returning None.")
+            verbose_msg("Splicer: ERROR: sequence_list must be a list of codon lists, which all encode the same amino sequence.")
+            verbose_msg("Splicer: ERROR: Can't work under these conditions, returning None.")
             return None
-        
-        # Below: We're going to iterate over SequenceList, making a new working list with dictionary values instead of plain codon lists.
+
+        # Below: We're going to iterate over sequence_list, making a new working list with dictionary values instead of plain codon lists.
         # Each dictionary is simply the issueMap of the codon list, with the codon list embedded into it under key "fullcodonlist".
-        WorkingList = []
-        for i in SequenceList:
-            i_issueMap = {}
-            i_issueMap['issueMap'] = self.mapExcludedSites(i, self.excludesites)
-            i_issueMap['fullcodonlist'] = i
-            i_issueMap['mapIndices'] = list(i_issueMap['issueMap'].keys())
-            i_issueMap['mapIndices'].sort() # Probably unnecessary, as dict-keys are already sorted..
-            WorkingList.append(i_issueMap)
-            # i_issueMap['issueMap'] is a dict with numerical keys.
+        working_list = []
+        for i in sequence_list:
+            i_issuemap = {}
+            i_issuemap['issueMap'] = self.map_excluded_sites(i, self.excludesites)
+            i_issuemap['fullcodonlist'] = i
+            i_issuemap['mapIndices'] = list(i_issuemap['issueMap'].keys())
+            i_issuemap['mapIndices'].sort() # Probably unnecessary, as dict-keys are already sorted..
+            working_list.append(i_issuemap)
+            # i_issuemap['issueMap'] is a dict with numerical keys.
             # For each key (which corresponds to a site with issue(s)), the values returned are:
             #   {'spanning_codons', 'encodes', 'contains_sites', 'ensuing_codons', 'preceding_codons'}
             # Splicer will (probably) ignore most of these keys, instead comparing the 'mapIndices' lists simply to check which
             # Sequence has the longest span of uninterrupted codons.
 
-        NewCodons = []
-        verboseMsg("Splicer: About to attempt splicing of the following sequences:")
-        for i in WorkingList:
-            i_number = WorkingList.index(i)
-            verboseMsg("Splicer: Seq #"+str(i_number)+" issues: "+str(i['mapIndices']))
+        new_codons = []
+        verbose_msg("Splicer: About to attempt splicing of the following sequences:")
+        for i in working_list:
+            i_number = working_list.index(i)
+            verbose_msg("Splicer: Seq #"+str(i_number)+" issues: "+str(i['mapIndices']))
 
-        def findBestSpan(WorkList, CodonOffset):
-            'Working from CodonOffset, compare each sequence in WorkList to find one with longest-stretch-til-next-issue.'
-            verboseMsg("Splicer: Working from Offset "+str(CodonOffset)+"...")
-            BestSoFar = {'Seq':-1, 'Codon':-1} # Index of which sequence has best stretch of clear codons.
-            for i in range(0,len(WorkList)):
-                i_indices = WorkList[i]['mapIndices']
+        def find_best_span(work_list, codon_offset):
+            'Working from codon_offset, compare each sequence in work_list to find one with longest-stretch-til-next-issue.'
+
+            verbose_msg("Splicer: Working from Offset "+str(codon_offset)+"...")
+
+            best_so_far = {'Seq':-1, 'codon':-1} # index of which sequence has best stretch of clear codons.
+
+            for i in range(0,len(work_list)):
+                i_indices = work_list[i]['mapIndices']
                 for x in i_indices[:]: #Scan over a slice-copy of the list so we can edit the list as we iterate.
-                    if x < CodonOffset: del(i_indices[i_indices.index(x)]) # Delete if X less than CodonOffset.
+                    if x < codon_offset: del(i_indices[i_indices.index(x)]) # Delete if X less than codon_offset.
                 if len(i_indices) < 1:
-                    BestSoFar = {'Seq':i, 'Codon':SeqLen-1}
+                    best_so_far = {'Seq':i, 'codon':seq_len-1}
                     continue
-                if i_indices[0] > BestSoFar['Codon']:
-                    BestSoFar = {'Seq':i, 'Codon':i_indices[0]}
-            verboseMsg("Splicer: Best so far is Seq #"+str(BestSoFar['Seq'])+", which spans up until codon "+str(BestSoFar['Codon'])+".")
-            if (BestSoFar['Codon'] == CodonOffset) or (BestSoFar['Seq'] < 0):
-                verboseMsg("Splicer: Hit a brick wall at codon #"+str(CodonOffset)+" (recalcitrant enzyme site, or last codon), skipping.")
-                return WorkList[BestSoFar['Seq']]['fullcodonlist'][CodonOffset:CodonOffset+1] #Return next codon of "best" anyway.
-            BestFullLength = WorkList[BestSoFar['Seq']]['fullcodonlist']
-            NextCodons = BestFullLength[CodonOffset:BestSoFar['Codon']]
-            #verboseMsg("Splicer: Returning codons for extension:\n"+str(NextCodons))
-            return NextCodons
+                if i_indices[0] > best_so_far['codon']:
+                    best_so_far = {'Seq':i, 'codon':i_indices[0]}
 
-        while len(NewCodons) < SeqLen:
-            NewCodons += findBestSpan(WorkingList, len(NewCodons))
-        verboseMsg("Splicer: Sanity checking that NewCodons matches amino sequence of input sequence set..")
-        assert self.translate(NewCodons) == self.translate(SequenceList[0])
-        self.rnacodonlist = NewCodons
+            verbose_msg("Splicer: Best so far is Seq #"+str(best_so_far['Seq'])+", which spans up until codon "+str(best_so_far['codon'])+".")
 
-    def optimiseSequence(self):
-        import itertools
-        def createCodonPermutations(AminoSequence, sanity_ceiling = 256):
-            '''Return a list of codon-lists that encode the desired AminoSequence. Warning: for long
+            if (best_so_far['codon'] == codon_offset) or (best_so_far['Seq'] < 0):
+                verbose_msg("Splicer: hit a brick wall at codon #"+str(codon_offset)+" (recalcitrant enzyme site, or last codon), skipping.")
+                return work_list[best_so_far['Seq']]['fullcodonlist'][codon_offset:codon_offset+1] #Return next codon of "best" anyway.
+
+            best_full_length = work_list[best_so_far['Seq']]['fullcodonlist']
+            next_codons = best_full_length[codon_offset:best_so_far['codon']]
+            #verbose_msg("Splicer: Returning codons for extension:\n"+str(next_codons))
+            return next_codons
+
+        while len(new_codons) < seq_len:
+            new_codons += find_best_span(working_list, len(new_codons))
+
+        verbose_msg("Splicer: Sanity checking that new_codons matches amino sequence of input sequence set..")
+
+        assert self.translate(new_codons) == self.translate(sequence_list[0])
+
+        self.rnacodonlist = new_codons
+
+
+    def optimise_sequence(self):
+        def create_codon_permutations(amino_sequence, sanity_ceiling = 256):
+            '''Return a list of codon-lists that encode the desired amino_sequence. Warning: for long
             sequences, this might be a really dumb thing to do, so this implements a sanity check,
             comparing the predicted number of permutations to the "sanity_ceiling" and aborting if
             greater.'''
-            CodonChoices = [] # Will be populated with sub-lists of codon choices at every index.
-            for Amino in AminoSequence:
-                PossibleCodons = list(self.codontable[Amino.upper()].keys())
-                CodonChoices.append(PossibleCodons)
-            PredictedPermutations = 1
-            for CodonSet in CodonChoices: # Calculate # of possible permutations by multiplying choices
-                PredictedPermutations *= len(CodonSet)
-            if PredictedPermutations > sanity_ceiling:
-                verboseMsg("Predicted permutations = "+str(PredictedPermutations)+".. aborting!")
+
+            codon_choices = [] # Will be populated with sub-lists of codon choices at every index.
+
+            for amino in amino_sequence:
+                possible_codons = list(self.codontable[amino.upper()].keys())
+                codon_choices.append(possible_codons)
+
+            predicted_permutations = 1
+
+            for codon_set in codon_choices: # Calculate # of possible permutations by multiplying choices
+                predicted_permutations *= len(codon_set)
+
+            if predicted_permutations > sanity_ceiling:
+                verbose_msg("Predicted permutations = "+str(predicted_permutations)+".. aborting!")
                 return []
-            verboseMsg("Reverse Translator: Generating "+str(PredictedPermutations)+" permutations for amino sequence "+AminoSequence+"..")
-            PermutationMaker = itertools.product(*CodonChoices)
-            Perms = []
-            for Permutation in PermutationMaker:
-                Perms.append(Permutation)
-            return Perms
-        def chooseBestCodonPermutation(Permutations):
+
+            verbose_msg("Reverse Translator: Generating "+str(predicted_permutations)+" permutations for amino sequence "+amino_sequence+"..")
+            permutation_maker = itertools.product(*codon_choices)
+            perms = []
+
+            for permutation in permutation_maker:
+                perms.append(permutation)
+
+            return perms
+
+        def choose_best_codon_permutation(permutations):
             'This is here to be improved upon.'
             import random
-            return random.choice(Permutations)
-        def shuffleCodons(CodonList):
-            'Translates and then reverse-translates the target region.'
-            Aminos = self.translate(CodonList)
-            NewCodons = self.reverseTranslate(Aminos)
-            return NewCodons
-        def attemptPermutations(IssueDict):
-            IssueContext = ' '.join(IssueDict['preceding_codons']) + '{0}' + ' '.join(IssueDict['ensuing_codons'])
-            Permutations = createCodonPermutations(IssueDict['encodes'])
-            if Permutations: # i.e. if we were not handed back an empty list..
-                HitList = [] # List permutations to remove.
-                verboseMsg("Reverse Translator: Trimming permutations to remove those containing excluded sites..")
-                verboseMsg("Reverse Translator: Permutations are: "+json.dumps(Permutations))
-                for Perm in Permutations:
-                    PermSequence = IssueContext.format(''.join(Perm)).upper() # Insert Permutation into local context..
-                    for Exclude in self.excludesites: # Then scan through excludes..
-                        if Exclude in PermSequence: # ..and remove the permutation if an excluded site is found within.
-                            HitInd = Permutations.index(Perm)
-                            HitList.append(Perm)
-                            verboseMsg("Reverse Translator: Targeting permutation index '"+str(HitInd)+"' for deletion.")
-                for Hit in HitList:
-                    try: Permutations.remove(Hit)
-                    except ValueError: verboseMsg("Permutation "+str(Hit)+" already removed from permutations.")
-                verboseMsg("Reverse Translator: Permutations are: "+json.dumps(Permutations))
-                if len(Permutations) < 1: # if there are no options left!
-                    print("Reverse Translator: Could not find an enzyme-free permutation for issue at index "+str(Index)+", "+\
-                          "corresponding to nucleotide "+str(Index*3)+"! You must address this manually. Sorry!")
-                    self.ignoredCodons.append(Index)
-                else: # Randomly select a suitable codon set, and replace the problem area with it:
-                    SuitableCodons = chooseBestCodonPermutation(Permutations) #Currently random.
-                    NumCodons = len(SuitableCodons)
-                    verboseMsg("Reverse Translator: Choosing: "+''.join(SuitableCodons) + " for codons "+str(Index)+" to "+str(Index+NumCodons-1)+".")
-                    verboseMsg("New Context is:\r\n"+IssueContext.format('|'+' '.join(SuitableCodons)+'|').upper())
-                    self.rnacodonlist[Index:Index+NumCodons] = SuitableCodons
-            else: # If we were given an empty list, probably because number of permutations was too large.
-                print("Reverse Translator: There are unresolved issues at index "+str(Index)+", corresponding to nucleotide "+\
-                       str(Index*3) + ". Due to the number of permutations at this locus, it has been skipped."+\
-                       " You must manually edit this site to your satisfaction. Sorry!")
-                self.ignoredCodons.append(Index)
+            return random.choice(permutations)
 
-        verboseMsg("Reverse Translator: Generating first-pass codon list for amino acid sequence.")
+        def shuffle_codons(codon_list):
+            'Translates and then reverse-translates the target region.'
+            aminos = self.translate(codon_list)
+            new_codons = self.reverse_translate(aminos)
+            return new_codons
+
+        def attempt_permutations(issue_dict):
+            issue_context = ' '.join(issue_dict['preceding_codons']) + '{0}' + ' '.join(IssueDict['ensuing_codons'])
+            permutations = create_codon_permutations(issue_dict['encodes'])
+
+            if permutations: # i.e. if we were not handed back an empty list..
+                hit_list = [] # List permutations to remove.
+                verbose_msg("Reverse Translator: Trimming permutations to remove those containing excluded sites..")
+                verbose_msg("Reverse Translator: permutations are: "+json.dumps(permutations))
+                for perm in permutations:
+                    perm_sequence = issue_context.format(''.join(perm)).upper() # Insert Permutation into local context..
+                    for exclude in self.excludesites: # Then scan through excludes..
+                        if exclude in perm_sequence: # ..and remove the permutation if an excluded site is found within.
+                            hitInd = permutations.index(perm)
+                            hit_list.append(perm)
+                            verbose_msg("Reverse Translator: Targeting permutation index '"+str(hitInd)+"' for deletion.")
+                for hit in hit_list:
+                    try: permutations.remove(hit)
+                    except ValueError: verbose_msg("permutation "+str(hit)+" already removed from permutations.")
+                verbose_msg("Reverse Translator: permutations are: "+json.dumps(permutations))
+                if len(permutations) < 1: # if there are no options left!
+                    print("Reverse Translator: Could not find an enzyme-free permutation for issue at index "+str(index)+", "+\
+                          "corresponding to nucleotide "+str(index*3)+"! You must address this manually. Sorry!")
+                    self.ignoredcodons.append(index)
+                else: # Randomly select a suitable codon set, and replace the problem area with it:
+                    suitable_codons = choose_best_codon_permutation(permutations) #Currently random.
+                    num_codons = len(suitable_codons)
+                    verbose_msg("Reverse Translator: Choosing: "+''.join(suitable_codons) + " for codons "+str(index)+" to "+str(Index+Numcodons-1)+".")
+                    verbose_msg("New Context is:\r\n"+issue_context.format('|'+' '.join(suitable_codons)+'|').upper())
+                    self.rnacodonlist[index:Index+num_codons] = suitable_codons
+            else: # If we were given an empty list, probably because number of permutations was too large.
+                print("Reverse Translator: There are unresolved issues at index "+str(index)+", corresponding to nucleotide "+\
+                       str(index*3) + ". Due to the number of permutations at this locus, it has been skipped."+\
+                       " You must manually edit this site to your satisfaction. Sorry!")
+                self.ignoredcodons.append(index)
+
+        verbose_msg("Reverse Translator: Generating first-pass codon list for amino acid sequence.")
         if not self.rnacodonlist: # If there's nothing to work with, generate a candidate:
-            self.rnacodonlist = self.reverseTranslate(self.peptidesequence)
-            verboseMsg("Reverse Translator: First pass codon list generation complete.")
+            self.rnacodonlist = self.reverse_translate(self.peptidesequence)
+            verbose_msg("Reverse Translator: First pass codon list generation complete.")
         i = 3 # Really it should be done by 3 cycles..
         while i > 0:
             i -= 1
-            issueMap = self.mapExcludedSites(self.rnacodonlist, self.excludesites)
+            issueMap = self.map_excluded_sites(self.rnacodonlist, self.excludesites)
             if not issueMap: #i.e. if no issues remain
                 break
 
@@ -295,24 +337,26 @@ class RevTranslateRNA:
             #            2) Scan permutations in their proposed context and delete any that contain anything in "contains_sites".
             #            3) From remainder, choose randomly.
 
-            IndexList = list(issueMap.keys()) # Create an ordered list of indices. (for some reason, using sort() yielded Nonetype?
-            verboseMsg("Reverse Translator: IndexList is: "+str(IndexList))
-            for Index in IndexList:
-                verboseMsg("Reverse Translator: Addressing issue at codon "+str(Index)+" (nucleotide "+str(Index*3)+"):")
-                ProblemDict = issueMap[Index]
-                attemptPermutations(ProblemDict)
+            index_list = list(issueMap.keys()) # Create an ordered list of indices. (for some reason, using sort() yielded Nonetype?
+            verbose_msg("Reverse Translator: index_list is: "+str(indexList))
+            for index in index_list:
+                verbose_msg("Reverse Translator: Addressing issue at codon "+str(index)+" (nucleotide "+str(Index*3)+"):")
+                ProblemDict = issueMap[index]
+                attempt_permutations(ProblemDict)
 
         # Finally:
-        verboseMsg("Reverse Translator: Finished addressing issues, concatenating codons to result!")
+        verbose_msg("Reverse Translator: Finished addressing issues, concatenating codons to result!")
         self.result = ''.join(self.rnacodonlist)
         if self.outputdna:
             self.result = self.result.replace("U", "T")
 
-    def mapExcludedSites(self, CodonList, ExcludedSites):
+
+    def map_excluded_sites(self, codon_list, excluded_sites):
         '''Returns a dictionary containing integer keys, where each key corresponds to a list index for
-        CodonList where an excluded site was found. The dictionary contains the number of codons the
+        codon_list where an excluded site was found. The dictionary contains the number of codons the
         excluded site spans, the amino acids encoded by those codons, and any other sub-sites found at
         the same index.'''
+
         def allindices(string, sub, offset=0):
             'Returns a list of ALL indices of a substring, not just first.'
             listindex = []
@@ -321,114 +365,121 @@ class RevTranslateRNA:
                 listindex.append(i)
                 i = string.find(sub, i + 1)
             return listindex
-        def findProblemCodons(sequence, excludedsite):
+
+        def find_problem_codons(sequence, excludedsite):
             'Maps string indices to codon-list indices.'
             stringindices = allindices(sequence, excludedsite)
             codonlistindices = []
             for stringindex in stringindices:
                 codonindex = floor(stringindex/3) # floor = imported from math.
-                if codonindex not in self.ignoredCodons:
+                if codonindex not in self.ignoredcodons:
                     if codonindex not in codonlistindices:
                         codonlistindices.append(codonindex)
                 else:
-                    verboseMsg("Mapper: Ignoring issue at index "+str(codonindex)+" because it can't be resolved.")
+                    verbose_msg("Mapper: Ignoring issue at index "+str(codonindex)+" because it can't be resolved.")
             return codonlistindices
 
-        verboseMsg("Mapping issues in RNA codon map.")
-        verboseMsg(self.prettyCodonsList(CodonList))
+        verbose_msg("Mapping issues in RNA codon map.")
+        verbose_msg(self.pretty_codons_list(codon_list))
 
-        FoundIssues = {}
-        sequenceString = ''.join(CodonList)
-        for Exclude in ExcludedSites:
-            ExcludeCodonLength = ceil(len(Exclude) / 3) # Round up.
-            ProblemCodons = findProblemCodons(sequenceString, Exclude)
-            for ProblemCodon in ProblemCodons: # ProblemCodon is a list index for the codon in question.
-                verboseMsg("Mapper: Found site: "+Exclude+" @ codon "+str(ProblemCodon)+".")
+        found_issues = {}
+        sequence_string = ''.join(codon_list)
+        for exclude in excluded_sites:
+            excludecodonLength = ceil(len(Exclude) / 3) # Round up.
+            problem_codons = find_problem_codons(sequence_string, exclude)
+            for problem_codon in problem_codons: # problem_codon is a list index for the codon in question.
+                verbose_msg("Mapper: Found site: "+exclude+" @ codon "+str(problem_codon)+".")
 
-                # Below: Sites don't always align perfectly with boundary of "problemcodon", so must determine if overhang exists.
+                # Below: sites don't always align perfectly with boundary of "problemcodon", so must determine if overhang exists.
                 #  So, join codons, search for problem site, and if it's not in joined codons, probably need extra codon.
-                if Exclude in ''.join(CodonList[ProblemCodon : ProblemCodon + ExcludeCodonLength]):
-                    SpannedCodons = CodonList[ProblemCodon : ProblemCodon + ExcludeCodonLength]
-                    Ensuing = ProblemCodon + ExcludeCodonLength
+                if exclude in ''.join(codon_list[problem_codon : problem_codon + ExcludecodonLength]):
+                    spanned_codons = codon_list[problem_codon : problem_codon + exclude_codon_length]
+                    ensuing = problem_codon + exclude_codon_length
                 else:
-                    SpannedCodons = CodonList[ProblemCodon : ProblemCodon + ExcludeCodonLength + 1]
-                    Ensuing = ProblemCodon + ExcludeCodonLength + 1
-                    assert Exclude in ''.join(SpannedCodons) # Throw a fit if this fails.
+                    spanned_codons = codon_list[problem_codon : problem_codon + exclude_codon_length + 1]
+                    ensuing = problem_codon + exclude_codon_length + 1
+                    assert exclude in ''.join(spanned_codons) # Throw a fit if this fails.
 
-                PrecedingCodons = CodonList[ProblemCodon-self.largestexclude:ProblemCodon]
-                EnsuingCodons = CodonList[Ensuing:Ensuing+self.largestexclude]
+                preceding_codons = codon_list[problem_codon-self.largestexclude:problem_codon]
+                ensuing_codons = codon_list[ensuing:ensuing+self.largestexclude]
 
-                ProblemString = '\tContext: {0}|{1}|{2}'.format(' '.join(PrecedingCodons), '-'.join(SpannedCodons), ' '.join(EnsuingCodons))
-                verboseMsg(ProblemString)
+                problem_string = '\tContext: {0}|{1}|{2}'.format(' '.join(preceding_codons), '-'.join(spanned_codons), ' '.join(ensuing_codons))
+                verbose_msg(problem_string)
 
-                if ProblemCodon not in FoundIssues.keys():
-                    FoundIssues[ProblemCodon] = {'spanning_codons':	ExcludeCodonLength,
-                                                'encodes': 		self.translate(SpannedCodons),
-                                                'preceding_codons':	PrecedingCodons,
-                                                'ensuing_codons':	EnsuingCodons,
-                                                'contains_sites': 	[Exclude]              }
-                elif FoundIssues[ProblemCodon]['spanning_codons'] >= ExcludeCodonLength:
-                    FoundIssues[ProblemCodon]['contains_sites'].append(Exclude)
-                elif FoundIssues[ProblemCodon]['spanning_codons'] < ExcludeCodonLength:
-                    FoundIssues[ProblemCodon]['spanning_codons'] = ExcludeCodonLength
-                    FoundIssues[ProblemCodon]['contains_sites'].append(Exclude)
-                    FoundIssues[ProblemCodon]['encodes'] = self.translate(SpannedCodons)
+                if problem_codon not in found_issues.keys():
+
+                    found_issues[problem_codon] = { 'spanning_codons': exclude_codon_length,
+                                                    'encodes': self.translate(spanned_codons),
+                                                    'preceding_codons': preceding_codons,
+                                                    'ensuing_codons': ensuing_codons,
+                                                    'contains_sites': [exclude] }
+
+                elif found_issues[problem_codon]['spanning_codons'] >= exclude_codon_length:
+                    found_issues[problem_codon]['contains_sites'].append(exclude)
+                elif found_issues[problem_codon]['spanning_codons'] < exclude_codon_length:
+                    found_issues[problem_codon]['spanning_codons'] = exclude_codon_length
+                    found_issues[problem_codon]['contains_sites'].append(exclude)
+                    found_issues[problem_codon]['encodes'] = self.translate(spanned_codons)
                 else:
-                    print("Error in mapExcludedSites.")
-        verboseMsg("Mapper: Finished! Returning to reverse translator.")
-        verboseMsg("Mapper: Issues are: "+json.dumps(FoundIssues,indent=1))
-        return FoundIssues
+                    print("Error in map_excluded_sites.")
+        verbose_msg("Mapper: Finished! Returning to reverse translator.")
+        verbose_msg("Mapper: Issues are: "+json.dumps(found_issues,indent=1))
+        return found_issues
 
-    def selectCodon(self, Amino, Floor=0.0):
+
+    def select_codon(self, amino, floor=0.0):
         '''Returns a weighted-random-selected codon with frequency greater than "floor".'''
-        def randomCategory(probDict):
-            '''Accepts a dictionary of {opt:wgt}, e.g.: randomCategory({'a':.15, 'b':.35, 'c':.5})
+        def random_category(prob_dict):
+            '''Accepts a dictionary of {opt:wgt}, e.g.: random_category({'a':.15, 'b':.35, 'c':.5})
                Returns a selection based on weight. Weights must be normalised, should sum to 1!'''
             import random
             r = random.random() # range: 0,1
             total = 0
-            for value,prob in probDict.items():
+            for value,prob in prob_dict.items():
                 if prob <= 0: continue # ignore items with a 0 weight.
                 total += prob
                 if total>r: return value
-            raise Exception('Distribution not normalized: {probs}'.format(probs=str(probDict)))
+            raise Exception('Distribution not normalized: {probs}'.format(probs=str(prob_dict)))
         # Above function is re-usable. Below wraps it for specific codon-selection purposes.
-        assert isinstance(Amino, str)
-        CandidateCodons = self.codontable[Amino]
-        ChosenCodon = randomCategory(CandidateCodons)
-        return ChosenCodon
+        assert isinstance(amino, str)
+        candidate_codons = self.codontable[amino]
+        chosen_codon = random_category(candidate_codons)
+        return chosen_codon
 
-    def parseExcludes(self, ExcludeList):
-        verboseMsg("Parsing through excluded enzyme list.")
-        def cleanupSite(Site):
-            CharHitList = '0123456789()<>^\\/-[],.'
-            for Char in CharHitList:
-                Site = Site.replace(Char, '')
-            Site = Site.strip().strip("N") # Kill whitespace and random flanking Ns!
-            return Site.upper()
-        assert isinstance(ExcludeList, list)
-        OutputList = []
-        Largest = 0
-        for entry in ExcludeList:
+
+    def parse_excludes(self, exclude_list):
+        verbose_msg("Parsing through excluded enzyme list.")
+        def cleanupsite(Site):
+            charhit_list = '0123456789()<>^\\/-[],.'
+            for char in charhit_list:
+                site = Site.replace(char, '')
+            site = Site.strip().strip("N") # Kill whitespace and random flanking Ns!
+            return site.upper()
+        assert isinstance(exclude_list, list)
+        output_list = []
+        largest = 0
+        for entry in exclude_list:
             assert isinstance(entry, str)
-            Entry = cleanupSite(entry)
-            EntryLen = len(Entry)
-            OutputList.extend(self.createRNAPermutations(Entry))
-            if EntryLen > Largest:
-                Largest = EntryLen
-        verboseMsg("Excluded sites are: \r\n"+str(OutputList))
-        return OutputList, Largest            
+            entry = cleanupsite(entry)
+            entry_len = len(Entry)
+            output_list.extend(self.create_rna_permutations(entry))
+            if entry_len > largest:
+                largest = entry_len
+        verbose_msg("excluded sites are: \r\n"+str(output_list))
+        return output_list, largest
 
-    def buildTranslationTable(self, codontable):
+
+    def build_translation_table(self, codontable):
         'Inverts a codon table, omitting frequencies, to infer the translation table of the target species.'
-        TransTable = {}
-        verboseMsg("Building forward translation table from codon table.")
-        for Amino in codontable.keys():
-            for Codon in codontable[Amino]:
-                TransTable[Codon] = Amino
-        return TransTable
+        trans_table = {}
+        verbose_msg("Building forward translation table from codon table.")
+        for amino in codontable.keys():
+            for codon in codontable[amino]:
+                trans_table[codon] = amino
+        return trans_table
 
-    def loadaminos(self, aminos):
+
+    def load_aminos(self, aminos):
         assert isinstance(aminos, str)
         # NOTE: This function merely strips illegal (non-IUPAC) characters.
         #  It expects JUST the amino sequence, not markup e.g. FASTA titles! Sanitise input!
@@ -440,43 +491,45 @@ class RevTranslateRNA:
                 aminos = aminos.replace(char, "")
         return aminos
 
-    def importCodonTable(self,CodonTable, Floor = 0.0):
+
+    def import_codon_table(self,codon_table, floor = 0.0):
         '''Imports codon tables that may have excess metadata into simple codon:frequency dicts.
-           Also removes codons whose frequency is below Floor, and re-normalises remaining frequencies.
+           Also removes codons whose frequency is below floor, and re-normalises remaining frequencies.
            i.e. convert this:
-              "C": { "TGC": { "frequency": 0.5772005772005773, 'info':'More highly charged under starvation' }, 
+              "C": { "TGC": { "frequency": 0.5772005772005773, 'info':'More highly charged under starvation' },
                      "TGT": { "frequency": 0.42279942279942284, 'synthetase':{'seq':'mabcd','protID=foo1234'}
                     }
            ...into this:
               "C":{"TGC":0.5772005772005773,
                    "TGT":0.42279942279942284}'''
-        verboseMsg("Importing specified codon table, discarding frequencies below "+str(Floor))
-        assert isinstance(CodonTable, dict)
-        FrequencyDict = {}
-        for Amino in CodonTable.keys():
-            FrequencyDict[Amino] = {}
-            ThisAminoTotalFrequency = 0.0
-            for Codon in CodonTable[Amino].keys():
-                # This For-loop gets the frequency for each codon, and copies it if it's greater than Floor.
+        verbose_msg("Importing specified codon table, discarding frequencies below "+str(floor))
+        assert isinstance(codon_table, dict)
+        frequency_dict = {}
+        for amino in codon_table.keys():
+            frequency_dict[amino] = {}
+            this_amino_total_frequency = 0.0
+            for codon in codon_table[amino].keys():
+                # This For-loop gets the frequency for each codon, and copies it if it's greater than floor.
                 try:
-                    Freq = CodonTable[Amino][Codon]['frequency']
-                    if Freq > Floor:
-                        FrequencyDict[Amino][Codon] = Freq
-                        ThisAminoTotalFrequency += Freq
+                    Freq = codon_table[amino][codon]['frequency']
+                    if Freq > floor:
+                        frequency_dict[amino][codon] = Freq
+                        this_amino_total_frequency += Freq
                 except:
                     print("Error while importing codon table; entry {0} in {1} \
-                           has no frequency value. Skipping {0}.".format(Codon,Amino))
-            if ThisAminoTotalFrequency < 1:
+                           has no frequency value. Skipping {0}.".format(codon,amino))
+            if this_amino_total_frequency < 1:
                 # This probably means we've omitted one or more codons due to being less frequent than floor.
                 # So, we have to re-normalise the remaining frequencies:
-                for Codon in FrequencyDict[Amino].keys():
-                    FrequencyDict[Amino][Codon] = ThisAminoTotalFrequency / FrequencyDict[Amino][Codon]
-        return FrequencyDict
+                for codon in frequency_dict[amino].keys():
+                    frequency_dict[amino][codon] = this_amino_total_frequency / frequency_dict[amino][codon]
+        return frequency_dict
 
-    def createDNAPermutations(self, Site):
+
+    def create_dna_permutations(self, site):
         'Returns a list of possible permutations for a given IUPAC DNA string.'
-        verboseMsg("Creating a set of DNA permutations for "+Site)
-        import itertools
+        verbose_msg("Creating a set of DNA permutations for "+site)
+
         IUPACDNA = { 'A': 'A',    'B': 'CGT',
                      'C': 'C',    'D': 'AGT',
                      'G': 'G',    'H': 'ACT',
@@ -486,30 +539,30 @@ class RevTranslateRNA:
                      'V': 'ACG',  'W': 'AT',
                      'Y': 'CT',   '.': 'ACGT',
                      '-': 'ACGT' }
-        SNPList = []
-        PermList = []
-        for Char in Site:
-            SNPList.append(IUPACDNA[Char])
-        PermGenerator = itertools.product(*SNPList) # "*" character dumps list contents as args.
-        for item in PermGenerator:
-            PermList.append(''.join(item))
-        return PermList
+        snp_list = []
+        perm_list = []
+        for char in site:
+            snp_list.append(IUPACDNA[char])
+        perm_generator = itertools.product(*snp_list) # "*" character dumps list contents as args.
+        for item in perm_generator:
+            perm_list.append(''.join(item))
+        return perm_list
 
-    def createRNAPermutations(self, Site):
+    def create_rna_permutations(self, site):
         'Returns a list of possible RNA permutations for a given IUPAC DNA string.'
-        DNASites = self.createDNAPermutations(Site)
-        verboseMsg("Converting DNA permutations to RNA.")
-        RNASites = []
-        for DNASite in DNASites:
-            RNASites.append(DNASite.replace("T", "U"))
-        return RNASites
+        DNAsites = self.create_dna_permutations(Site)
+        verbose_msg("Converting DNA permutations to RNA.")
+        RNAsites = []
+        for DNAsite in DNASites:
+            RNAsites.append(DNASite.replace("T", "U"))
+        return RNAsites
 
-    def convertRNAtoDNA(self,RNAinput):
+    def convert_rna_to_dna(self,RNAinput):
         assert isinstance(RNAinput, str)
         DNAoutput = RNAinput.upper().replace("T","U")
         return DNAoutput
 
-    def giveOutput(self):
+    def give_output(self):
         'Runs quick sanity checks and returns result.'
         newaminosequence = self.translate(self.rnacodonlist)
         #print(newaminosequence)
@@ -527,91 +580,102 @@ class RevTranslateRNA:
 
 # ======================================================================== #
 # Functions:
-from fasta_utils import ReadFastaFile
+from fasta_utils import read_fasta_file
 
-def importCodonTable(CodonTableFile):
+def import_codon_table(codon_table_file):
     '''Expects a file containing a codontable in json format.
 
-    codontable: Should be a dict mapping Amino acid letters to codons with frequencies. Example entry:
-    "C": { "TGC": { "frequency": 0.5772005772005773 }, 
+    codontable: Should be a dict mapping amino acid letters to codons with frequencies. Example entry:
+    "C": { "TGC": { "frequency": 0.5772005772005773 },
            "TGT": { "frequency": 0.42279942279942284}  }
     The file can actually contain other metadata for each codon, but should not contain keys other
     than codons for each amino acid; keys are assumed to correspond to codons only. Likewise, keys
     in the "master" dictionary are assumed to be amino acids and will be imported as such, although
     there is less risk of errors here as keys will only become relevant if called by a function/method.'''
     import json
-    CodonTableFileDir = os.path.join(CodonTableDir, CodonTableFile + '.json')
-    with open(CodonTableFileDir) as TableFile:
-        CodonTable = json.loads(TableFile.read())
-    assert isinstance(CodonTable, dict)
+    codon_table_fileDir = os.path.join(codon_table_dir, codon_table_file + '.json')
+    with open(codon_table_fileDir) as TableFile:
+        codon_table = json.loads(TableFile.read())
+    assert isinstance(codon_table, dict)
     ReturnTable = {}
-    for Amino in CodonTable.keys(): # Assumes all keys are amino acids.
-        ReturnTable[Amino] = {}
-        for Codon in CodonTable[Amino].keys(): # Assumes all keys are codons.
+    for amino in codon_table.keys(): # Assumes all keys are amino acids.
+        ReturnTable[amino] = {}
+        for codon in codon_table[amino].keys(): # Assumes all keys are codons.
             # What does this achieve, exactly? It just prunes codontable and verifies that each
             #  codon has a frequency value..useful?
-            try: ReturnTable[Amino][Codon] = {'frequency':CodonTable[Amino][Codon]['frequency']}
-            except: print("Codon "+Codon+" of Amino "+Amino+" has no 'frequency' key! Skipped.")
+            try: ReturnTable[amino][codon] = {'frequency':codon_table[amino][codon]['frequency']}
+            except: print("codon "+codon+" of amino "+amino+" has no 'frequency' key! Skipped.")
     return ReturnTable
 
-def importExclusions(ExcludeFile):
+def import_exclusions(exclude_file):
     '''Expects a JSON formatted file containing a simple list of IUPAC DNA sequences to avoid.
 
-    Sites are expanded into permutations and stored in the object for comparison to draft sequences.
+    sites are expanded into permutations and stored in the object for comparison to draft sequences.
     Providing too many sites with ambiguous characters from the IUPAC set may result in huge exclusion
     lists, potential program slowdown or crashing. For the love of all that's holy, strip unnecessary "N"
     characters from TypeIIs or Homing Endonucleases, where sites may often be written with lots of Ns outside
     the actual recognition area; this program will assume these are relevant and will generate 4^(number of Ns)
     permutations.'''
-    import json
-    if not isinstance(ExcludeFile, str):
+
+    if not isinstance(exclude_file, str):
         return []
-    with open(ExcludeFile) as ExcludesFile:
-        ExcludesList = json.loads(ExcludesFile.read())
-    assert isinstance(ExcludesList, list)
+    with open(exclude_file) as excludes_file:
+        excludesList = json.loads(excludes_file.read())
+    assert isinstance(excludesList, list)
     IUPACDNA = 'ABCDGHKMNRSTVWY.-'
-    for Exclude in ExcludesList:
-        for char in Exclude:
+    for exclude in ExcludesList:
+        for char in exclude:
             assert char in IUPACDNA
-    return ExcludesList
+    return excludesList
 
 # ======================================================================== #
-# Args contains: 'infile', 'output_dna', 'species', 'exclude_sites', 'min_codon_frequency', 'usage', 'splice_candidates'
+# args contains: 'infile', 'output_dna', 'species', 'exclude_sites', 'min_codon_frequency', 'usage', 'splice_candidates'
 # Usage: RevTranslatedRNA(aminos, codontable, excludesites, output_dna=False):
-FastaDict = ReadFastaFile(Args['infile'])
-AminoSequence = FastaDict['sequence']
-if not AminoSequence:
-    print("No valid Amino Acid sequence found in target file. Quitting.")
+fasta_dict = read_fasta_file(args['infile'])
+amino_sequence = fasta_dict['sequence']
+
+if not amino_sequence:
+    print("No valid amino Acid sequence found in target file. Quitting.")
     sys.exit(1)
-try: SpeciesCodonTable = importCodonTable(Args['species'])
+try:
+    species_codon_table = import_codon_table(args['species'])
 except AssertionError:
-    print("Codon table file specified is not a dict. Quitting.")
+    print("codon table file specified is not a dict. Quitting.")
     sys.exit(1)
 except KeyError:
-    print("Encountered a missing dictionary key (Amino? Codon?) while parsing and pruning Codon Table. Quitting.")
+    print("Encountered a missing dictionary key (amino? codon?) while parsing and pruning codon Table. Quitting.")
     sys.exit(1)
-try: SiteExclusionList = importExclusions(Args['exclude_sites'])
+
+try:
+    site_exclusion_list = import_exclusions(args['exclude_sites'])
 except AssertionError:
     print(("Either the specified file doesn't encode a list,"
            "or the list entries aren't all valid IUPAC DNA strings.\r\n"
-           "NB: Permitted IUPAC DNA codes are 'ABCDGHKMNRSTVWY.-'"
+           "NB: permitted IUPAC DNA codes are 'ABCDGHKMNRSTVWY.-'"
            "\r\nProgram will quit."))
     sys.exit(1)
-if Args['output_dna']: DNAArg = True
-else: DNAArg = False
 
-if Args['min_codon_frequency']: FreqArg = Args['min_codon_frequency']
-else: FreqArg = 0.0
+if args['output_dna']:
+    dna_arg = True
+else:
+    dna_arg = False
 
-if Args['splice_candidates']: SplicesArg = Args['splice_candidates']
-else: SplicesArg = 0
+if args['min_codon_frequency']:
+    freq_arg = args['min_codon_frequency']
+else:
+    freq_arg = 0.0
 
-ReverseTranslator = RevTranslateRNA(AminoSequence, SpeciesCodonTable, SiteExclusionList, FreqArg, DNAArg, SplicesArg)
-ReverseTranslator.spliceSequences()
-ReverseTranslator.optimiseSequence()
+if args['splice_candidates']:
+    splices_arg = args['splice_candidates']
+else:
+    splices_arg = 0
+
+reverse_translator = rev_translate_rna(amino_sequence, species_codon_table, site_exclusion_list, freq_arg, dna_arg, splices_arg)
+reverse_translator.splice_sequences()
+reverse_translator.optimise_sequence()
 
 # Deliver results of algorithmic goodness:
-verboseMsg("Codons with remaining issues: "+json.dumps(ReverseTranslator.ignoredCodons))
-verboseMsg("\r\nOutput:\r\n")
-print(ReverseTranslator.giveOutput())
+verbose_msg("codons with remaining issues: "+json.dumps(reverse_translator.ignoredcodons))
+verbose_msg("\r\nOutput:\r\n")
+print(reverse_translator.give_output())
 
