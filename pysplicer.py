@@ -82,7 +82,7 @@ class RevTranslateRNA:
         self.ignoredCodons = [] # Used to ignore intransigent sites.
         self.result = ''
         candidatesnum = candidates or 20
-        self.generateCandidateList(candidates)
+        self.generateCandidateList(candidatesnum)
         verboseMsg("Initialised RevTranslateRNA object.")
 
     def translate(self,codonlist):
