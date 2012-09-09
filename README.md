@@ -31,33 +31,23 @@ In this method, the candidate is again searched for target enzyme sites; these m
 At present, selection of replacement codons is entirely random; a planned feature is a frequency evaluation and comparison to the desired codon frequency table, with preference being shown to replacement codons that bring the candidate codon list closer to the desired frequency spread.
 
 ## Advantages
-This script is Free/Libre Open Source Software, and appears to be the first FLOSS script to address this method of codon optimisation.
-
-This approach allows you to rapidly exclude degenerate sites while optimising an RNA sequence for a given amino acid sequence.
-
-This script can parse degenerate IUPAC sequences for sites to exclude (which are given as DNA sequences, rather than RNA).
-
-This script comes with an enzyme profile picker which (while very dumb) makes it easy to add sites for most known restriction enzymes from an extensive master list.
-
-With the right frequency tables, it is thought that this approach can offer the best translation efficiencies currently achievable by publicly disclosed means.
-
-This object/script is portable to other applications, for example mobile apps though Android Scripting Layer, webapps through CherryPy, or chat bots through python programs such as Phenny.
-
-This script is also pipe-able, which may be useful to native CLI nerds.
+* This script is Free/Libre Open Source Software, and appears to be the first FLOSS script to address this method of codon optimisation.
+* This approach allows you to rapidly exclude degenerate sites while optimising an RNA sequence for a given amino acid sequence.
+* This script can parse degenerate IUPAC sequences for sites to exclude (which are given as DNA sequences, rather than RNA).
+* This script comes with an enzyme profile picker which (while very dumb) makes it easy to add sites for most known restriction enzymes from an extensive master list.
+* With the right frequency tables, it is thought that this approach can offer the best translation efficiencies currently achievable by publicly disclosed means.
+* This object/script is portable to other applications, for example mobile apps though Android Scripting Layer, webapps through CherryPy, or chat bots through python programs such as Phenny.
 
 ## Disadvantages
-This script only supports FASTA files at present.
+* This script only supports FASTA files at present.
+* This script currently has no regard for the original translation speed of the wild gene. It is now known that some proteins require "poorly adapted" codons at certain locations in order to slow down translation, allowing proper folding of the protein structure before further amino acid addition. With this script, no such adaptations will be respected, and some rare proteins may therefore suffer.
+* This script has no frequency analysis routines at present, and so it is left to the user to ensure that statistical fluke does not lead to a terribly "optimised" sequence. Frequency analysis is a desired feature in future revisions of the code. At the very least, a verbose-mode printout at the end listing desired codon frequencies versus delivered frequencies would be helpful.
+* This script requires codon tables to be provided in a custom-build JSON format. While very simple, this necessitates converting a desired codon table in one of the many hard-to-parse formats in widespread use into the JSON format used by this script. Also, this script uses codon frequencies relative to synonymous codons (that is, if an amino acid is encoded by two codons, and they are used in an 80:20 ratio, the frequencies will be 0.8 and 0.2, respectively), whereas it is customary to use frequencies per 1000 codons in most frequency tables. This will also necessitate conversion. A helper script to automate this tedious process is another desired feature.
+* The default codon frequency table is derived from evidence based work, but only in part; the study in question didn't provide data on all codons, and so the "gaps" were filled in with the genome-wide codon frequencies for *E.coli K12*. This may be a bad decision, and perhaps someone knows better how to fill gaps in data such as this for optimal expression.
 
-This script currently has no regard for the original translation speed of the wild gene. It is now known that some proteins require "poorly adapted" codons at certain locations in order to slow down translation, allowing proper folding of the protein structure before further amino acid addition. With this script, no such adaptations will be respected, and some rare proteins may therefore suffer.
-
-This script has no frequency analysis routines at present, and so it is left to the user to ensure that statistical fluke does not lead to a terribly "optimised" sequence. Frequency analysis is a desired feature in future revisions of the code. At the very least, a verbose-mode printout at the end listing desired codon frequencies versus delivered frequencies would be helpful.
-
-This script requires codon tables to be provided in a custom-build JSON format. While very simple, this necessitates converting a desired codon table in one of the many hard-to-parse formats in widespread use into the JSON format used by this script. Also, this script uses codon frequencies relative to synonymous codons (that is, if an amino acid is encoded by two codons, and they are used in an 80:20 ratio, the frequencies will be 0.8 and 0.2, respectively), whereas it is customary to use frequencies per 1000 codons in most frequency tables. This will also necessitate conversion. A helper script to automate this tedious process is another desired feature.
-
-The default codon frequency table is derived from evidence based work, but only in part; the study in question didn't provide data on all codons, and so the "gaps" were filled in with the genome-wide codon frequencies for *E.coli K12*. This may be a bad decision, and perhaps someone knows better how to fill gaps in data such as this for optimal expression.
-
-## Unresolved Issues
+## Unresolved Issues and Desired Features
 * Setting a minimum codon frequency above a certain threshold, which likely varies from table to table, will cause the script to fail.
+* A refactoring of the "map_excluded_sites" method to use regular expressions rather than straight lists of comparison substrings would avoid issues where the program might crash if given *highly* degenerate sequences like AGGANNNNNNNNNNWWWWWG, which would compute to no less than 33,554,432 substrings. The above could be represented by a regex as "AGGA[ACGT]{10}[AT]{5}G" and would require a lower memory footprint and likely less time to parse.
 
 ## Credit Where It's Due
 * The master list of enzymes provided with the script for ease of exclusion profile creation is derived from NEB's REBASE database of Restriction Enzymes. It's provided in JSON format and may prove useful to others as such, but it wouldn't have been possible to compile without REBASE itself.
