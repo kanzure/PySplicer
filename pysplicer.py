@@ -528,7 +528,7 @@ class rev_translate_rna:
         candidate_codons = self.codontable[amino]
         if index is not None:
             trimmed_candidate_codons = {}
-            if index < 155:
+            if index < 25:
             # Try to exclude NGG codons from first 25 codons; can cause ribosomal dropoff in E.coli at least.
                 for codon in candidate_codons.keys():
                     if codon not in ["AGG", "UGG", "CGG", "GGG"]:
