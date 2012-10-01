@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # pysplicer.py - A codon-optimising script with support for enzyme site exclusion.
-# Uses a weighted-random codon selection system with optional minimum frequency threshold to exclude very rare codons.
-# Comes with presets including empirically determined E.coli optimal codon tables from Welch et al, 2009.
-# Applies miscellaneous rules from "Designing Genes for Successful Protein Expression" by Welch et al, 2011:
+#
+# Uses a weighted-random codon selection system with optional minimum frequency
+# threshold to exclude very rare codons. Comes with presets including
+# empirically determined E.coli optimal codon tables from Welch et al, 2009.
+# Applies miscellaneous rules from "Designing Genes for Successful Protein
+# Expression" by Welch et al, 2011:
+#
 #  - TODO: Minimum frequency threshold is increased for first 25 codons.
 #  - TODO: "NGG" codons are penalised in first 25 codons.
 
@@ -15,8 +19,9 @@ import itertools
 import re
 from math import ceil, floor
 
-# Below: Some files and directories are required for the script to correctly import codon tables etc.,
-# so first the expected directories are set to variables, and then it's checked whether or not they exist.
+# Below: Some files and directories are required for the script to correctly
+# import codon tables etc., so first the expected directories are set to
+# variables, and then it's checked whether or not they exist.
 script_dir = sys.path[0] # Gives script directory. Default/imported codon tables will be here.
 lib_dir = os.path.join(script_dir, 'lib')
 codon_table_dir = os.path.join(lib_dir, 'codontables')
@@ -57,7 +62,7 @@ arg_parser.add_argument('--usage', action='store_true',
 
 args = vars(arg_parser.parse_args()) # vars makes a dict of the results.
 
-# ============================================================================================== #
+# ======================================================================== #
 # Below: The class that does most of the heavy lifting here:
 
 class rev_translate_rna:
@@ -114,7 +119,8 @@ class rev_translate_rna:
 
     def report(self, msg):
         'For messages that are important enough to show the user.'
-        # If it's important enough to report it's definitely important enough for verbose output.
+        # If it's important enough to report it's definitely important enough
+        # for verbose output.
         assert isinstance(msg, str)
         self.verbose_msg(msg)
         with open("pysplicer_report", mode='a') as Reportfile:
@@ -166,20 +172,27 @@ class rev_translate_rna:
         return print_string
 
     def splice_sequences(self, sequence_list=[]):
-        '''Takes a list of candidate sequences (which must encode same amino sequence) and attempts to splice a site-free form.
+        '''Takes a list of candidate sequences (which must encode same amino
+        sequence) and attempts to splice a site-free form.
 
-        This method uses self.issueMap to do the job of mapping each candidate sequence for issues, and compares sequences
-        to find which one has the longest stretch of codons without any issues to address. It appends all the codons prior to
-        the first discovered issue to an internal candidate sequence, and then starts again from this point, attempting to find
+        This method uses self.issueMap to do the job of mapping each candidate
+        sequence for issues, and compares sequences to find which one has the
+        longest stretch of codons without any issues to address. It appends all
+        the codons prior to the first discovered issue to an internal candidate
+        sequence, and then starts again from this point, attempting to find
         another candidate with a useful stretch of site-free nucleotides.
 
         In doing so, two problems may arise:
-            A) The method may encounter an issue/site that is universal to all sequences, and it must ignore said site and continue.
-            B) The method may create new issues/sites at the splice junctions, but resolving these issues can be left to the
+            A) The method may encounter an issue/site that is universal to all
+               sequences, and it must ignore said site and continue.
+            B) The method may create new issues/sites at the splice junctions,
+               but resolving these issues can be left to the
                self.optimise_sequence() method.
         '''
+
         def assert_equivalence(seq_list):
-            'This function checks that seq_list is a non-zero list and that contents are valid and equivalent codon lists.'
+            '''This function checks that seq_list is a non-zero list and that
+            contents are valid and equivalent codon lists.'''
             assert isinstance(seq_list, list)
             assert len(seq_list) > 0
             for i in seq_list:
@@ -202,8 +215,10 @@ class rev_translate_rna:
             self.verbose_msg("Splicer: ERROR: Can't work under these conditions, returning None.")
             return None
 
-        # Below: We're going to iterate over sequence_list, making a new working list with dictionary values instead of plain codon lists.
-        # Each dictionary is simply the issueMap of the codon list, with the codon list embedded into it under key "fullcodonlist".
+        # Below: We're going to iterate over sequence_list, making a new
+        # working list with dictionary values instead of plain codon lists.
+        # Each dictionary is simply the issueMap of the codon list, with the
+        # codon list embedded into it under key "fullcodonlist".
         working_list = []
         for i in sequence_list:
             i_issuemap = {}
@@ -213,10 +228,12 @@ class rev_translate_rna:
             i_issuemap['mapIndices'].sort() # Probably unnecessary, as dict-keys are already sorted..
             working_list.append(i_issuemap)
             # i_issuemap['issueMap'] is a dict with numerical keys.
-            # For each key (which corresponds to a site with issue(s)), the values returned are:
+            # For each key (which corresponds to a site with issue(s)), the
+            # values returned are:
             #   {'spanning_codons', 'encodes', 'contains_sites', 'ensuing_codons', 'preceding_codons'}
-            # Splicer will (probably) ignore most of these keys, instead comparing the 'mapIndices' lists simply to check which
-            # Sequence has the longest span of uninterrupted codons.
+            # Splicer will (probably) ignore most of these keys, instead
+            # comparing the 'mapIndices' lists simply to check which Sequence
+            # has the longest span of uninterrupted codons.
 
         new_codons = []
         self.verbose_msg("Splicer: About to attempt splicing of the following sequences:")
@@ -261,10 +278,10 @@ class rev_translate_rna:
         self.rnacodonlist = new_codons
 
     def create_codon_permutations(self, amino_sequence, sanity_ceiling = 300):
-        '''Return a list of codon-lists that encode the desired amino_sequence. Warning: for long
-        sequences, this might be a really dumb thing to do, so this implements a sanity check,
-        comparing the predicted number of permutations to the "sanity_ceiling" and aborting if
-        greater.'''
+        '''Return a list of codon-lists that encode the desired amino_sequence.
+        Warning: for long sequences, this might be a really dumb thing to do,
+        so this implements a sanity check, comparing the predicted number of
+        permutations to the "sanity_ceiling" and aborting if greater.'''
         # Will be populated with sub-lists of codon choices at every codon.
         codon_choices = []
         for amino in amino_sequence:
@@ -277,7 +294,8 @@ class rev_translate_rna:
             # Calculate # of possible permutations by multiplying choices
             predicted_permutations *= len(codon_set)
         # Warn user if we're shortcutting through massive permutation-space.
-        # Later, this could be used to set a flag that changes behaviour of generator, below.
+        # Later, this could be used to set a flag that changes behaviour of
+        # generator, below.
         if predicted_permutations > sanity_ceiling:
             self.verbose_msg("Predicted permutations: "+str(predicted_permutations)+\
                              ".. only "+str(sanity_ceiling)+" will be returned.")
@@ -286,13 +304,15 @@ class rev_translate_rna:
         permutation_maker = itertools.product(*codon_choices) # Yields generator.
         perms = []
 
-        # Extract vals from generator, stopping short at the sanity-ceiling value.
+        # Extract vals from generator, stopping short at the sanity-ceiling
+        # value.
         for permutation in permutation_maker:
             perms.append(permutation)
             # Break the loop once we have sanity_ceiling permutations.
-            # TODO: Make this skip through the generator to fetch more diverse permutations
-            #     if it knows it'll be hitting the ceiling; otherwise options may be pretty limited
-            #     in large permutation sets with >1000s of possibilities; first 300 will suck.
+            # TODO: Make this skip through the generator to fetch more diverse
+            # permutations if it knows it'll be hitting the ceiling; otherwise
+            # options may be pretty limited in large permutation sets with
+            # >1000s of possibilities; first 300 will suck.
             if len(perms) >= sanity_ceiling:
                 self.verbose_msg("Generated more than 500 permutations for "+amino_sequence+\
                                  "..generating no further.")
@@ -300,22 +320,30 @@ class rev_translate_rna:
         return perms
 
     def choose_best_codon_permutation(self, permutations, codon_position=0):
-        '''This is called to choose a good codon out of a given set. It returns the chosen codon.
+        '''This is called to choose a good codon out of a given set. It returns
+        the chosen codon.
 
-        In PySplicer, this is called after removing all the unsuitable codons, freeing this Method to
-        pick the "best" of the remainder where a preference makes any sense.
+        In PySplicer, this is called after removing all the unsuitable codons,
+        freeing this Method to pick the "best" of the remainder where a
+        preference makes any sense.
 
-        This should pick with some regard to the desired frequency table, or perhaps in such a way as to
-        "mend" deviations from the desired frequencies.
+        This should pick with some regard to the desired frequency table, or
+        perhaps in such a way as to "mend" deviations from the desired
+        frequencies.
 
-        If a codon locational index is given this can be used to bias the choice; for example, NGG codons
-        are apparently a bad thing for expression when found within the first ~25 codons in E.coli.'''
+        If a codon locational index is given this can be used to bias the
+        choice; for example, NGG codons are apparently a bad thing for
+        expression when found within the first ~25 codons in E.coli.'''
         import random
-        # If a codon position is provided, check against further rules relating to position.
+
+        # If a codon position is provided, check against further rules relating
+        # to position.
         if codon_position:
-            # Below rule: some empirical work suggests that first 25 codons in E.coli are sensitive in particular
-            # to rare codons or to NGG codons, and this can cause ribosomal dropoff. So, check whether the codon
-            # choices include non-NGG codons and pick from those if available.
+            # Below rule: some empirical work suggests that first 25 codons in
+            # E.coli are sensitive in particular to rare codons or to NGG
+            # codons, and this can cause ribosomal dropoff. So, check whether
+            # the codon choices include non-NGG codons and pick from those if
+            # available.
             if codon_position <= 25:
                 self.verbose_msg("Choosing best codon for one of first 25 codons; trying to avoid NGG codons.")
                 print("Choosing best codon for one of first 25 codons; trying to avoid NGG codons.")
@@ -332,9 +360,11 @@ class rev_translate_rna:
                 else:
                     self.verbose_msg("No Non-NGG codons existed for this locus after other filters were applied, sorry.")
                     print("No Non-NGG codons existed for this locus after other filters were applied, sorry.")
-            # If rules cannot apply without eliminating all choices, or if there were no rules to apply, just proceed with normal choice.
+            # If rules cannot apply without eliminating all choices, or if
+            # there were no rules to apply, just proceed with normal choice.
             return random.choice(permutations)
-        # If no codon position is provided, then just proceed with normal choice.
+        # If no codon position is provided, then just proceed with normal
+        # choice.
         else:
             return random.choice(permutations)
 
@@ -346,26 +376,34 @@ class rev_translate_rna:
             return new_codons
 
         def attempt_permutations(issue_dict, index):
-            # issue_context_output is used for pretty codon display in verbose mode.
+            # issue_context_output is used for pretty codon display in verbose
+            # mode.
             issue_context_output = ' '.join(issue_dict['preceding_codons']) + '{0}' + ' '.join(issue_dict['ensuing_codons'])
-            # issue_context, with no spaces, is used for formatting permutations into the local context, checking.
+            # issue_context, with no spaces, is used for formatting
+            # permutations into the local context, checking.
             issue_context = ''.join(issue_dict['preceding_codons']) + '{0}' + ''.join(issue_dict['ensuing_codons'])
 
-            # Brute-force create all available permutations for the amino sequence encoded by the area, as a list.
-            # This will stop short of a "sanity_ceiling", in case you give it too much possibility-stuff
+            # Brute-force create all available permutations for the amino
+            # sequence encoded by the area, as a list. This will stop short of
+            # a "sanity_ceiling", in case you give it too much
+            # possibility-stuff
             permutations = self.create_codon_permutations(issue_dict['encodes'])
 
             self.verbose_msg("Reverse Translator: Trimming permutations to remove those containing excluded sites..")
             self.verbose_msg("Reverse Translator: permutations are: "+json.dumps(permutations))
             # Copy list: can parse over and delete from original as desired without interrupting iteration.
             for perm in permutations[:]:
-                # Create a string representation of the local area with this permutation in it.
+                # Create a string representation of the local area with this
+                # permutation in it.
                 perm_sequence = issue_context.format(''.join(perm)).upper()
-                # Now scan through all the excluded sites and see if they're in the area when this permutation is added.
+                # Now scan through all the excluded sites and see if they're in
+                # the area when this permutation is added.
                 for exclude in self.excludesites:
                     if exclude in perm_sequence:
-                        # Remove this permutation from the list of possibilities.
-                        # NB: This is removing perm from the original list, not the copy we've made above for this loop.
+                        # Remove this permutation from the list of
+                        # possibilities. NB: This is removing perm from the
+                        # original list, not the copy we've made above for this
+                        # loop.
                         self.verbose_msg("Permutation "+''.join(perm)+" was found to harbour forbidden sequences, and will be "+\
                                          "removed from the set of possibilities for this locus.")
                         try: permutations.remove(permutations.index(perm))
@@ -373,14 +411,16 @@ class rev_translate_rna:
                                                             "which it was originally copied. How odd.")
 
             self.verbose_msg("Reverse Translator: permutations are: "+json.dumps(permutations))
-            # If no viable options remain, then flag this locus as an intractable site to ignore in future.
+            # If no viable options remain, then flag this locus as an
+            # intractable site to ignore in future.
             if len(permutations) < 1:
                 print("Reverse Translator: Could not find an enzyme-free permutation for issue at index "+str(index)+", "+\
                       "corresponding to nucleotide "+str(index*3)+"! You must address this manually. Sorry!")
                 self.ignoredcodons.append(index)
             # If there are suitable permutations:
             else:
-                # Select a suitable codon (currently random) and replace problem area with it.
+                # Select a suitable codon (currently random) and replace
+                # problem area with it.
                 suitable_codons = self.choose_best_codon_permutation(permutations, index)
                 num_codons = len(suitable_codons)
                 self.verbose_msg("Reverse Translator: Choosing: "+\
@@ -424,10 +464,12 @@ class rev_translate_rna:
             self.result = self.result.replace("U", "T")
 
     def map_excluded_sites(self, codon_list, regex_sites):
-        '''Returns a dictionary containing integer keys, where each key corresponds to a list index for
-        codon_list where an excluded site was found. The dictionary contains the number of codons the
-        excluded site spans, the amino acids encoded by those codons, and any other sub-sites found at
-        the same index.'''
+        '''Returns a dictionary containing integer keys, where each key
+        corresponds to a list index for codon_list where an excluded site was
+        found. The dictionary contains the number of codons the excluded site
+        spans, the amino acids encoded by those codons, and any other sub-sites
+        found at the same index.'''
+
         def uniquify(seq): # Dave Kirby
             '''This is a fast, order-preserving function for removing duplicates from a sequence/list.
             Found here: http://www.peterbe.com/plog/uniqifiers-benchmark'''
@@ -463,12 +505,14 @@ class rev_translate_rna:
         sequence_string = ''.join(codon_list)
         regex_identified_sites = []
         for regex in regex_sites:
-            # This appends a list of all identified permutations of the regex to master list.
+            # This appends a list of all identified permutations of the regex
+            # to master list.
             identified_sites = regex.findall(sequence_string)
             identified_sites = uniquify(identified_sites)
             regex_identified_sites.extend(identified_sites)
 
-        # Now that we have a list of identified permutations of the regexes, we can be more specific.
+        # Now that we have a list of identified permutations of the regexes, we
+        # can be more specific.
         for exclude in regex_identified_sites:
             exclude_codon_length = ceil(len(exclude) / 3) # Round up.
             problem_codons = find_problem_codons(sequence_string, exclude)
@@ -512,10 +556,13 @@ class rev_translate_rna:
         return found_issues
 
     def select_codon(self, amino, index=None, floor=0.0):
-        '''Returns a weighted-random-selected codon with frequency greater than "floor", applying rules if index is not None.'''
+        '''Returns a weighted-random-selected codon with frequency greater than
+        "floor", applying rules if index is not None.'''
+
         def random_category(prob_dict):
             '''Accepts a dictionary of {opt:wgt}, e.g.: random_category({'a':.15, 'b':.35, 'c':.5})
-               Returns a selection based on weight. Weights must be normalised, should sum to 1!'''
+               Returns a selection based on weight. Weights must be normalised,
+               should sum to 1!'''
             import random
             r = random.random() # range: 0,1
             total = 0
@@ -525,12 +572,14 @@ class rev_translate_rna:
                 if total>r: return value
             raise Exception('Distribution not normalized: {probs}'.format(probs=str(prob_dict)))
         # Above function is re-usable. Below wraps it for specific codon-selection purposes.
+
         assert isinstance(amino, str)
         candidate_codons = self.codontable[amino]
         if index is not None:
             trimmed_candidate_codons = {}
             if index < 25:
-            # Try to exclude NGG codons from first 25 codons; can cause ribosomal dropoff in E.coli at least.
+                # Try to exclude NGG codons from first 25 codons; can cause
+                # ribosomal dropoff in E.coli at least.
                 for codon in candidate_codons.keys():
                     if codon not in ["AGG", "UGG", "CGG", "GGG"]:
                         trimmed_candidate_codons[codon] = candidate_codons[codon]
@@ -546,7 +595,8 @@ class rev_translate_rna:
         return chosen_codon
 
     def iupac_reverse_complement(self, sequence):
-        'Accepts a DNA string in IUPAC format and returns the reverse complement.'
+        '''Accepts a DNA string in IUPAC format and returns the reverse
+        complement.'''
         assert isinstance(sequence,str)
         inverse_iupac = { # Translates to an IUPAC sequence of potential complements.
                          "A":    "T", "T": "A",
@@ -565,7 +615,8 @@ class rev_translate_rna:
             try:
                 complement_sequence_list.append(inverse_iupac[base])
             except KeyError:
-                # This shouldn't happen, as sequences have already been passed through self.nucleic_iupac_purify by now..
+                # This shouldn't happen, as sequences have already been passed
+                # through self.nucleic_iupac_purify by now..
                 ErrMsg = "Error: non-IUPAC character detected in sequence"+sequence+"..ignoring."
                 print(ErrMsg, file=sys.stderr)
                 self.verbose_msg(ErrMsg)
@@ -575,7 +626,8 @@ class rev_translate_rna:
         return reverse_complement_sequence
 
     def nucleic_iupac_purify(self, iupac_sequence, strip_flanking_wildcards=False):
-        '''Prunes only legal IUPAC DNA/RNA characters from a given string and returns those.'''
+        '''Prunes only legal IUPAC DNA/RNA characters from a given string and
+        returns those.'''
         assert isinstance(iupac_sequence, str)
         iupac_sequence = iupac_sequence.upper()
         iupac_characters = ['A', 'T', 'C', 'G', 'U',    # Canonical bases
@@ -598,16 +650,19 @@ class rev_translate_rna:
         return output_sequence
 
     def parse_excludes(self, exclude_list):
-        '''Generates a list of permutations for all excluded/forbidden sequences in exclude_list.
+        '''Generates a list of permutations for all excluded/forbidden
+        sequences in exclude_list.
 
         Returns this list and the size of the largest encountered sequence.'''
         self.verbose_msg("Parsing through excluded enzyme list.")
+
         def cleanupsite(site):
             charhit_list = '0123456789()<>^\\/-[],.'
             for char in charhit_list:
                 site = site.replace(char, '')
             site = site.strip().strip("N") # Kill whitespace and random flanking Ns!
             return site.upper()
+
         assert isinstance(exclude_list, list)
         output_list = []
         largest = 0
@@ -624,12 +679,13 @@ class rev_translate_rna:
         return output_list, largest
 
     def dna_iupac_to_regex(self, sequence, return_pattern=False):
-        '''Uses a dictionary to assemble a (poorly formatted) python regex function from an IUPAC DNA string.
+        '''Uses a dictionary to assemble a (poorly formatted) python regex
+        function from an IUPAC DNA string.
 
-        For example, given the DNA sequence "AWWSSTGGC", this method returns a regular expression object with
-        this pattern: "A[AT][AT][GC][GC]TGGC"'''
-        # For those not familiar with regex, square brackets mean "any one of the contents".
-        # Therefore, [AGC] means either A, G or C.
+        For example, given the DNA sequence "AWWSSTGGC", this method returns a
+        regular expression object with this pattern: "A[AT][AT][GC][GC]TGGC"'''
+        # For those not familiar with regex, square brackets mean "any one of
+        # the contents". Therefore, [AGC] means either A, G or C.
         iupac_re = { 'A': 'A',    'B': '[CGT]',
                      'C': 'C',    'D': '[AGT]',
                      'G': 'G',    'H': '[ACT]',
@@ -641,27 +697,32 @@ class rev_translate_rna:
                      '-': '[ACGT]' }
         # First off, get rid of the crap
         sequence = self.nucleic_iupac_purify(sequence, strip_flanking_wildcards=True)
-        # Then, create an empty list, and append it with regex substitutes for each IUPAC letter
+        # Then, create an empty list, and append it with regex substitutes for
+        # each IUPAC letter
         sequence_re_list = []
         for base in sequence:
             sequence_re_list.append(iupac_re[base])
         # Flatten the list into a string
         sequence_re_str = ''.join(sequence_re_list)
-        # Compile a regex function from the string
-        # Again for those not familiar with regex in python, this is an object with lots of methods
-        # for parsing arbitrary strings of data and finding anything matching its "pattern".
+        # Compile a regex function from the string. Again for those not
+        # familiar with regex in python, this is an object with lots of methods
+        # for parsing arbitrary strings of data and finding anything matching
+        # its "pattern".
         sequence_re = re.compile(sequence_re_str)
         if return_pattern:
             return sequence_re, sequence_re_str # Former is the regex, latter is just for verbose readout.
         return sequence_re
 
     def parse_excludes_to_regex(self, exclude_list):
-        '''Translate IUPAC DNA exclusions into regex functions, return a list of compiled regexes for forbidden sites.'''
+        '''Translate IUPAC DNA exclusions into regex functions, return a list
+        of compiled regexes for forbidden sites.'''
         assert isinstance(exclude_list, list)
-        # output_list is the regular expressions to return, patterns_list is for verbose output.
+        # output_list is the regular expressions to return, patterns_list is
+        # for verbose output.
         output_list = []
         patterns_list = []
-        # largest is to tally the largest encountered sequence in exclude_list, which is returned.
+        # largest is to tally the largest encountered sequence in exclude_list,
+        # which is returned.
         largest = 0
         for entry in exclude_list:
             assert isinstance(entry, str)
@@ -678,7 +739,8 @@ class rev_translate_rna:
         return output_list, largest
 
     def build_translation_table(self, codontable):
-        'Inverts a codon table, omitting frequencies, to infer the translation table of the target species.'
+        '''Inverts a codon table, omitting frequencies, to infer the translation
+        table of the target species.'''
         trans_table = {}
         self.verbose_msg("Building forward translation table from codon table.")
         for amino in codontable.keys():
@@ -689,7 +751,8 @@ class rev_translate_rna:
     def load_aminos(self, aminos):
         assert isinstance(aminos, str)
         # NOTE: This function merely strips illegal (non-IUPAC) characters.
-        #  It expects JUST the amino sequence, not markup e.g. FASTA titles! Sanitise input!
+        #  It expects JUST the amino sequence, not markup e.g. FASTA titles!
+        #  Sanitise input!
         permittedaminos = 'ACDEFGHIKLMNPQRSTVWY' # TODO: implement B, X and Z?
         aminos = aminos.upper()
         for char in aminos:
@@ -731,7 +794,8 @@ class rev_translate_rna:
         for amino in codon_table.keys():
             frequency_dict[amino] = {}
             for codon in codon_table[amino].keys():
-                # This For-loop gets the frequency for each codon, and copies it if it's greater than floor.
+                # This For-loop gets the frequency for each codon, and copies
+                # it if it's greater than floor.
                 try:
                     Freq = codon_table[amino][codon]['frequency']
                     if Freq > floor:
@@ -795,20 +859,24 @@ class rev_translate_rna:
         return self.result
 
 # ======================================================================== #
-# Below: Some functions that might be better off as methods for the sake of portability:
+# Below: Some functions that might be better off as methods for the sake of
+# portability:
 
 from fasta_utils import read_fasta_file
 
 def import_codon_table(codon_table_file):
     '''Expects a file containing a codontable in json format.
 
-    codontable: Should be a dict mapping amino acid letters to codons with frequencies. Example entry:
+    codontable: Should be a dict mapping amino acid letters to codons with
+    frequencies. Example entry:
     "C": { "TGC": { "frequency": 0.5772005772005773 },
            "TGT": { "frequency": 0.42279942279942284}  }
-    The file can actually contain other metadata for each codon, but should not contain keys other
-    than codons for each amino acid; keys are assumed to correspond to codons only. Likewise, keys
-    in the "master" dictionary are assumed to be amino acids and will be imported as such, although
-    there is less risk of errors here as keys will only become relevant if called by a function/method.'''
+    The file can actually contain other metadata for each codon, but should not
+    contain keys other than codons for each amino acid; keys are assumed to
+    correspond to codons only. Likewise, keys in the "master" dictionary are
+    assumed to be amino acids and will be imported as such, although there is
+    less risk of errors here as keys will only become relevant if called by a
+    function/method.'''
     import json
     codon_table_fileDir = os.path.join(codon_table_dir, codon_table_file + '.json')
     with open(codon_table_fileDir) as TableFile:
@@ -825,14 +893,17 @@ def import_codon_table(codon_table_file):
     return ReturnTable
 
 def import_exclusions(exclude_file):
-    '''Expects a JSON formatted file containing a simple list of IUPAC DNA sequences to avoid.
+    '''Expects a JSON formatted file containing a simple list of IUPAC DNA
+    sequences to avoid.
 
-    sites are expanded into permutations and stored in the object for comparison to draft sequences.
-    Providing too many sites with ambiguous characters from the IUPAC set may result in huge exclusion
-    lists, potential program slowdown or crashing. For the love of all that's holy, strip unnecessary "N"
-    characters from TypeIIs or Homing Endonucleases, where sites may often be written with lots of Ns outside
-    the actual recognition area; this program will assume these are relevant and will generate 4^(number of Ns)
-    permutations.'''
+    sites are expanded into permutations and stored in the object for
+    comparison to draft sequences. Providing too many sites with ambiguous
+    characters from the IUPAC set may result in huge exclusion lists, potential
+    program slowdown or crashing. For the love of all that's holy, strip
+    unnecessary "N" characters from TypeIIs or Homing Endonucleases, where
+    sites may often be written with lots of Ns outside the actual recognition
+    area; this program will assume these are relevant and will generate
+    4^(number of Ns) permutations.'''
 
     if not isinstance(exclude_file, str):
         return []
@@ -848,7 +919,8 @@ def import_exclusions(exclude_file):
 # ======================================================================== #
 # Below: Parse all those args from above.
 
-# args contains: 'infile', 'output_dna', 'species', 'exclude_sites', 'min_codon_frequency', 'usage', 'splice_candidates'
+# args contains: 'infile', 'output_dna', 'species', 'exclude_sites',
+# 'min_codon_frequency', 'usage', 'splice_candidates'
 # Usage: RevTranslatedRNA(aminos, codontable, excludesites, output_dna=False):
 fasta_dict = read_fasta_file(args['infile'])
 amino_sequence = fasta_dict['sequence']
@@ -874,8 +946,9 @@ except AssertionError:
            "\r\nProgram will quit."))
     sys.exit(1)
 
-# Below: Argparser does funny things with some optional arguments if unset. For e.g., "store true" arguments, if unset,
-# are stored as "None", not as "False". To ward against obscure bugs due to such behaviour, the below just sets args
+# Below: Argparser does funny things with some optional arguments if unset. For
+# e.g., "store true" arguments, if unset, are stored as "None", not as "False".
+# To ward against obscure bugs due to such behaviour, the below just sets args
 # in stone before applying to the object.
 def make_none_false(argparse_output):
     if argparse_output == None:
@@ -890,7 +963,8 @@ else: freq_arg = 0.0
 if args['splice_candidates']: splices_arg = args['splice_candidates']
 else: splices_arg = 0
 
-# Below: Make the magic happen. Instantiate reverse_translator and perform usual operations to get desired output.
+# Below: Make the magic happen. Instantiate reverse_translator and perform
+# usual operations to get desired output.
 reverse_translator = rev_translate_rna(amino_sequence, species_codon_table, site_exclusion_list, freq_arg, dna_arg, splices_arg, verbose_arg)
 reverse_translator.splice_sequences()
 reverse_translator.optimise_sequence()
