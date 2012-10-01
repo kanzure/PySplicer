@@ -390,7 +390,8 @@ class rev_translate_rna:
 
             self.verbose_msg("Reverse Translator: Trimming permutations to remove those containing excluded sites..")
             self.verbose_msg("Reverse Translator: permutations are: "+json.dumps(permutations))
-            # Copy list: can parse over and delete from original as desired without interrupting iteration.
+            # Copy list: can parse over and delete from original as desired
+            # without interrupting iteration.
             for perm in permutations[:]:
                 # Create a string representation of the local area with this
                 # permutation in it.
