@@ -2,21 +2,25 @@
 '''Some functions for working with FASTA sequences as native types.'''
 
 def read_fasta_file(file):
-    'Imports the contents of a file as a string, passes to read_fasta() and returns output.'
+    '''Imports the contents of a file as a string, passes to read_fasta() and
+    returns output.'''
     with open(file) as fasta_file:
         fasta_dict = read_fasta(fasta_file.read())
     return fasta_dict
 
 def read_fasta(fasta_string):
-    '''Finds a sequence and returns a dictionary containing title, comments, accession (if found) and sequence.
+    '''Finds a sequence and returns a dictionary containing title, comments,
+    accession (if found) and sequence.
 
-    Supports extraction of titles, comments and sequence. (Comments are lines beginning with ';'.
-    This is an oft-ignored FASTA spec feature and is almost never used.)
-    Dictionary returned contains following keys, whether empty (evals false) or with contents:
+    Supports extraction of titles, comments and sequence. (Comments are lines
+    beginning with ';'. This is an oft-ignored FASTA spec feature and is almost
+    never used.) Dictionary returned contains following keys, whether empty
+    (evals false) or with contents:
      'title': (a string containing the title, including the ">" symbol)
      'comments': (a dict of format {string index: comment})
      'sequence': (a string containing the sequence)
-     'accession': (a string containing the accession information if present (detected by searching for '|' in title)
+     'accession': (a string containing the accession information if present
+                   (detected by searching for '|' in title)
     '''
     sequence = {'title':'','comments':{},'sequence':'','accession':''}
     fasta_lines = []
@@ -37,22 +41,27 @@ def read_fasta(fasta_string):
     return sequence
 
 def make_fasta(passed_sequence_dict, wraplines = 50):
-    '''Returns a multiline string containing the FASTA equivalent of the passed dictionary.
+    '''Returns a multiline string containing the FASTA equivalent of the passed
+    dictionary.
 
-    Dictionary must contain at least 'title' and 'sequence' keys. It may also contain 'accession'
-    and 'comments' keys.
+    Dictionary must contain at least 'title' and 'sequence' keys. It may also
+    contain 'accession' and 'comments' keys.
 
-    This function throws an AssertionError if "sequence" or "title" keys are missing, or if not a
-     dict, or if not all "comments" keys are integers.
+    This function throws an AssertionError if "sequence" or "title" keys are
+    missing, or if not a dict, or if not all "comments" keys are integers.
 
     Accession should be a string, and will be prepended to output title.
-    Comments should be a dictionary, with each key being the numeric string index where the
-     comment is to occur, with the value being the comment, like so: {12:"Comment at position 12"}
 
-    Comments are prepended with ';' as specced for FASTA, but are not compatible with many/most
-    software packages.
+    Comments should be a dictionary, with each key being the numeric string
+    index where the comment is to occur, with the value being the comment, like
+    so: {12:"Comment at position 12"}
 
-    wraplines is the number of characters to print per line before wrapping to next line.
+    Comments are prepended with ';' as specced for FASTA, but are not
+    compatible with many/most software packages.
+
+    wraplines is the number of characters to print per line before wrapping to
+    next line.
+
     spacelines is optional: place a space every (spacelines) characters'''
     sequence_dict = Passedsequence_dict #Separate from original dict to avoid pollution?
     assert isinstance(sequence_dict, dict)
