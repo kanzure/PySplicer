@@ -56,6 +56,7 @@ arg_parser.add_argument('--usage', action='store_true',
                        help='Ignore other flags/input and provide detailed usage information.')
 
 args = vars(arg_parser.parse_args()) # vars makes a dict of the results.
+
 # ============================================================================================== #
 # Below: The class that does most of the heavy lifting here:
 
@@ -184,7 +185,7 @@ class rev_translate_rna:
             for i in seq_list:
                 assert isinstance(i, list)
             First = self.translate(seq_list[0])
-            #nonlocal seq_len
+            # nonlocal seq_len
             #seq_len = len(seq_list[0]) # Used later for a while loop.
             for i in seq_list:
                 assert self.translate(i) == First
@@ -246,7 +247,7 @@ class rev_translate_rna:
                 self.verbose_msg("Splicer: had to skip codon #"+str(codon_offset)+\
                                  ": this is either a recalcitrant enzyme site (bad) or the end of "+\
                                  "the sequence (good).")
-                return work_list[best_so_far['Seq']]['fullcodonlist'][codon_offset:codon_offset+1] #Return next codon of "best" anyway.
+                return work_list[best_so_far['Seq']]['fullcodonlist'][codon_offset:codon_offset+1] # Return next codon of "best" anyway.
 
             best_full_length = work_list[best_so_far['Seq']]['fullcodonlist']
             next_codons = best_full_length[codon_offset:best_so_far['codon']]
@@ -405,7 +406,7 @@ class rev_translate_rna:
 
             # issueMap is a dict with numerical keys. The values returned are:
             #   {'spanning_codons', 'encodes', 'contains_sites', 'ensuing_codons', 'preceding_codons'}
-            
+
             # Create an ordered list of indices:
             index_list = list(issueMap.keys())
             self.verbose_msg("Reverse Translator: index_list is: "+str(index_list))
@@ -548,16 +549,16 @@ class rev_translate_rna:
         'Accepts a DNA string in IUPAC format and returns the reverse complement.'
         assert isinstance(sequence,str)
         inverse_iupac = { # Translates to an IUPAC sequence of potential complements.
-                         "A":	"T", "T": "A",
-                         "C":	"G", "G": "C",
-                         "W":	"W", "S": "S",
-                         "B":	"V", "V": "B",
-                         "H":	"D", "D": "H",
-                         "M":	"K", "K": "M",
-                         "R":	"Y", "Y": "R",
-                         "V":	"B", "B": "V",
-                         "N":	"N", ".": ".",
-                         "-":	"-"
+                         "A":    "T", "T": "A",
+                         "C":    "G", "G": "C",
+                         "W":    "W", "S": "S",
+                         "B":    "V", "V": "B",
+                         "H":    "D", "D": "H",
+                         "M":    "K", "K": "M",
+                         "R":    "Y", "Y": "R",
+                         "V":    "B", "B": "V",
+                         "N":    "N", ".": ".",
+                         "-":    "-"
                           }
         complement_sequence_list = []
         for base in sequence:
@@ -577,12 +578,12 @@ class rev_translate_rna:
         '''Prunes only legal IUPAC DNA/RNA characters from a given string and returns those.'''
         assert isinstance(iupac_sequence, str)
         iupac_sequence = iupac_sequence.upper()
-        iupac_characters = ['A', 'T', 'C', 'G', 'U',	# Canonical bases
-                            'B', 'V', 'D', 'H',		# B=Not A, V=Not T, D=Not C, H=Not G
-                            'S', 'W',			# Strong and Weak: GC vs. AT
-                            'K', 'M',			# "Keto" and "aMino": GT vs. AC
-                            'R', 'Y',			# "puRine" and "pYrimidine": AG vs CT
-                            'N', '.', '-']		# Wildcards: any N.
+        iupac_characters = ['A', 'T', 'C', 'G', 'U',    # Canonical bases
+                            'B', 'V', 'D', 'H',         # B=Not A, V=Not T, D=Not C, H=Not G
+                            'S', 'W',                   # Strong and Weak: GC vs. AT
+                            'K', 'M',                   # "Keto" and "aMino": GT vs. AC
+                            'R', 'Y',                   # "puRine" and "pYrimidine": AG vs CT
+                            'N', '.', '-']              # Wildcards: any N.
         output_char_list = []
         for char in iupac_sequence:
             if char in iupac_characters:
@@ -698,7 +699,7 @@ class rev_translate_rna:
         return aminos
 
     def normalise_codon_frequencies(self, codon_table):
-        'Given a dict of format {"XXX":float, "YYY":float}, returns with floats balanced to sum to 1.' 
+        'Given a dict of format {"XXX":float, "YYY":float}, returns with floats balanced to sum to 1.'
         assert isinstance(codon_table, dict)
         total_input_frequencies = 0.0
         for codon in codon_table.keys():
@@ -712,7 +713,7 @@ class rev_translate_rna:
             try: assert codon_table[codon] < 1.0000001
             except AssertionError: print("Codons not normalised:", codon, codon_table[codon], file=sys.stderr)
             total_output_frequencies += codon_table[codon]
-        return codon_table            
+        return codon_table
 
     def import_codon_table(self,codon_table, floor = 0.0):
         '''Imports codon tables that may have excess metadata into simple codon:frequency dicts.
@@ -795,6 +796,7 @@ class rev_translate_rna:
 
 # ======================================================================== #
 # Below: Some functions that might be better off as methods for the sake of portability:
+
 from fasta_utils import read_fasta_file
 
 def import_codon_table(codon_table_file):
