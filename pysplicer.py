@@ -334,7 +334,6 @@ class rev_translate_rna:
         If a codon locational index is given this can be used to bias the
         choice; for example, NGG codons are apparently a bad thing for
         expression when found within the first ~25 codons in E.coli.'''
-        import random
 
         # If a codon position is provided, check against further rules relating
         # to position.
@@ -563,7 +562,6 @@ class rev_translate_rna:
             '''Accepts a dictionary of {opt:wgt}, e.g.: random_category({'a':.15, 'b':.35, 'c':.5})
                Returns a selection based on weight. Weights must be normalised,
                should sum to 1!'''
-            import random
             r = random.random() # range: 0,1
             total = 0
             for value,prob in prob_dict.items():
@@ -877,7 +875,6 @@ def import_codon_table(codon_table_file):
     assumed to be amino acids and will be imported as such, although there is
     less risk of errors here as keys will only become relevant if called by a
     function/method.'''
-    import json
     codon_table_fileDir = os.path.join(codon_table_dir, codon_table_file + '.json')
     with open(codon_table_fileDir) as TableFile:
         codon_table = json.loads(TableFile.read())
